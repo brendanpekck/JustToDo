@@ -1,9 +1,10 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import { StyleSheet, Text, View, ScrollView, Button, StatusBar, TouchableOpacity, Pressable, TextInput, FlatList } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator, useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import VectorIcons from "react-native-vector-icons/FontAwesome";
 import Modal from "react-native-modal";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Tab = createBottomTabNavigator();
 let taskID = 0;
@@ -12,6 +13,27 @@ function HomeScreen() {
   const [modalVisibility, setModalVisibility] = useState(false);
   const [taskItem, setTaskItem] = useState("");
   const [taskList, setTaskList] = useState([]);
+
+  const storeData = async (value) => {
+    try {
+      await AsyncStorage.setItem("tasky", JSON.stringify([...taskList, value]));
+      setTaskList([...taskList, value]);
+      setTaskItem("");
+    } catch (e) {
+      console.log("store error");
+    }
+  }
+
+  const getData = async () => {
+    try {
+      const jsonValue = await AsyncStorage.getItem("tasky");
+      console.log(jsonValue);
+      return jsonValue != null? JSON.parse(jsonValue) : null;
+    } catch (e) {
+      console.log("retrieve error");
+    }
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.basic}>
       {taskList.map((item, id) => (
@@ -27,7 +49,7 @@ function HomeScreen() {
                 <TextInput placeholder="Add new task" defaultValue={taskItem} onChangeText={newItem => setTaskItem(newItem)} style={styles.inputSize}/>
               </View>
               <View style={styles.lineButton}>
-                <TouchableOpacity onPress={() => {setTaskList([...taskList, { id: taskID++, item: taskItem }]); setModalVisibility(false)}}>
+                <TouchableOpacity onPress={() => {storeData({id: taskID++, item: taskItem}); setModalVisibility(false);}}>
                   <View>
                     <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
                   </View>
@@ -40,6 +62,9 @@ function HomeScreen() {
       <View style={styles.botCen}>
         <TouchableOpacity style={styles.taskButton} onPress={() => setModalVisibility(true)}>
             <VectorIcons name="plus-circle" color="#2F2F2F" size={70}/>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.taskButton} onPress={() => {getData()}}>
+            <VectorIcons name="plus-circle" color="#123456" size={70}/>
         </TouchableOpacity>
       </View>
     </ScrollView>
