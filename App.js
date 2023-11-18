@@ -23,6 +23,10 @@ function HomeScreen() {
   const [taskItem, setTaskItem] = useState("");
   //list of all todo items
   const [taskList, setTaskList] = useState([]);
+  //individual completed todo items
+  const [completeTask, setCompleteTask] = useState("");
+  //list of all completed todo items
+  const [completeList, setCompleteList] = useState([]);
 
   //store data locally
   const storeData = async (value) => {
@@ -38,7 +42,7 @@ function HomeScreen() {
   //get locally stored data
   const getData = async () => {
     try {
-      const jsonValue = await AsyncStorage.getItem("tasky");
+      const jsonValue = await AsyncStorage.getItem("compl");
       console.log(jsonValue);
       return jsonValue != null? JSON.parse(jsonValue) : null;
     } catch (e) {
@@ -69,6 +73,28 @@ function HomeScreen() {
     }
   }
 
+  //mark individual item from list of todo items as complete
+  const completedTask = async (value) => {
+    try {
+      removeData(value.id);
+      await AsyncStorage.setItem("compl", JSON.stringify([...completeList, value]));
+      setCompleteList([...completeList, value]);
+    } catch (e) {
+      console.log("mark error");
+    }
+  }
+
+  //remove completed invidual items from list of completed todo items
+  const removeComplete = async (key) => {
+    try {
+      const deleteItem = completeList.filter(item => item.id != key);
+      setCompleteList(deleteItem);
+      await AsyncStorage.setItem("compl", JSON.stringify(deleteItem));
+    } catch (e) {
+      console.log("remove complete error");
+    }
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.basic}>
       {/* render out all todo items */}
@@ -82,6 +108,20 @@ function HomeScreen() {
           {/* edit todo item */}
           <TouchableOpacity onPress={() => {setEditKey(item.id); setEditModal(true)}}>
               <VectorIcons name="edit" color="#123456" size={70}/>
+          </TouchableOpacity>
+          {/* mark todo item complete */}
+          <TouchableOpacity onPress={() => {completedTask({id: item.id, item: item.item})}}>
+              <VectorIcons name="check" color="#123456" size={70}/>
+          </TouchableOpacity>
+        </View>
+      ))}
+      {/* render out all completed todo items */}
+      {completeList.map((item, id) => (
+        <View key={id} style={styles.listItem}>
+          <Text style={styles.textSize}>{item.item}</Text>
+          {/* remove completed todo item */}
+          <TouchableOpacity onPress={() => {removeComplete(item.id)}}>
+              <VectorIcons name="remove" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
       ))}
@@ -129,7 +169,7 @@ function HomeScreen() {
           </View>
         </Modal>
       </View>
-      {/* pop up to take in user input */}
+      {/* button for user input pop up */}
       <View style={styles.botCen}>
         <TouchableOpacity style={styles.taskButton} onPress={() => setAddModal(true)}>
             <VectorIcons name="plus-circle" color="#2F2F2F" size={70}/>
