@@ -143,16 +143,6 @@ function HomeScreen() {
   );
 }
 
-function CalendarScreen() {
-  return (
-    <ScrollView contentContainerStyle={styles.basic}>
-      <View>
-        <Text>Calendar</Text>
-      </View>
-    </ScrollView>
-  );
-}
-
 function AccountScreen() {
   return (
     <ScrollView contentContainerStyle={styles.basic}>
@@ -192,14 +182,6 @@ function App() {
             options={{
               tabBarLabel: "Home",
               tabBarIcon: ({focused}) => (<VectorIcons name="list" color={focused? "#ff6347": "#808080"} size={25}/>)
-            }}
-          />
-          <Tab.Screen
-            name="Calendar"
-            component={CalendarScreen}
-            options={{
-              tabBarLabel: "Calendar",
-              tabBarIcon: ({focused}) => (<VectorIcons name="calendar" color={focused? "#ff6347": "#808080"} size={25}/>)
             }}
           />
           <Tab.Screen
