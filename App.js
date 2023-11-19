@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import { StyleSheet, Text, View, ScrollView, Button, StatusBar, TouchableOpacity, Pressable, TextInput, FlatList, Alert } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useIsFocused } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator, useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import VectorIcons from "react-native-vector-icons/FontAwesome";
@@ -16,6 +16,14 @@ const Tab = createBottomTabNavigator();
 let taskID = 0;
 //store username
 let userName = "bruh";
+//sign in "token"
+let signedIn = false;
+//track finished task
+let finishedTask = 0;
+//track pending task
+let pendingTask = 0;
+//tasks count update switch
+let taskUpdate = false;
 
 //home screen/list of todo items
 function HomeScreen() {
@@ -29,25 +37,24 @@ function HomeScreen() {
   const [taskItem, setTaskItem] = useState("");
   //list of all todo items
   const [taskList, setTaskList] = useState([]);
-  //individual completed todo items
-  const [completeTask, setCompleteTask] = useState("");
   //list of all completed todo items
   const [completeList, setCompleteList] = useState([]);
   //submit button state
   const [disabled, setDisabled] = useState(true);
 
-  //store data locally
+  //add todo item to todo list
   const storeData = async (value) => {
     try {
       await AsyncStorage.setItem("tasky", JSON.stringify([...taskList, value]));
       setTaskList([...taskList, value]);
       setTaskItem("");
+      pendingTask++;
     } catch (e) {
       console.log("store error");
     }
   }
 
-  //get locally stored data
+  //debug - get locally stored data - REMOVE
   const getData = async () => {
     try {
       const jsonValue = await AsyncStorage.getItem("compl");
@@ -64,6 +71,7 @@ function HomeScreen() {
       const deleteItem = taskList.filter(item => item.id != key);
       setTaskList(deleteItem);
       await AsyncStorage.setItem("tasky", JSON.stringify(deleteItem));
+      pendingTask--;
     } catch (e) {
       console.log("delete error");
     }
@@ -87,6 +95,7 @@ function HomeScreen() {
       removeData(value.id);
       await AsyncStorage.setItem("compl", JSON.stringify([...completeList, value]));
       setCompleteList([...completeList, value]);
+      finishedTask++;
     } catch (e) {
       console.log("mark error");
     }
@@ -98,6 +107,7 @@ function HomeScreen() {
       const deleteItem = completeList.filter(item => item.id != key);
       setCompleteList(deleteItem);
       await AsyncStorage.setItem("compl", JSON.stringify(deleteItem));
+      finishedTask--;
     } catch (e) {
       console.log("remove complete error");
     }
@@ -114,7 +124,7 @@ function HomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.basic}>
       <View style={styles.textHeader}>
-          <Text style={styles.headerFont}>Tasks</Text>
+          <Text style={styles.smallerHeader}>Tasks</Text>
       </View>
       {/* render out all todo items */}
       {taskList.map((item, id) => (
@@ -131,16 +141,6 @@ function HomeScreen() {
           {/* mark todo item complete */}
           <TouchableOpacity onPress={() => {completedTask({id: item.id, item: item.item})}}>
               <VectorIcons name="check" color="#123456" size={70}/>
-          </TouchableOpacity>
-        </View>
-      ))}
-      {/* render out all completed todo items */}
-      {completeList.map((item, id) => (
-        <View key={id} style={styles.listItem}>
-          <Text style={styles.textSize}>{item.item}</Text>
-          {/* remove completed todo item */}
-          <TouchableOpacity onPress={() => {removeComplete(item.id)}}>
-              <VectorIcons name="remove" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
       ))}
@@ -185,45 +185,65 @@ function HomeScreen() {
         </Modal>
       </View>
       {/* button for user input pop up */}
-      <View style={styles.botCen}>
+      <View>
         <TouchableOpacity style={styles.taskButton} onPress={() => setAddModal(true)}>
             <VectorIcons name="plus-circle" color="#2F2F2F" size={70}/>
         </TouchableOpacity>
-        {/* debug - check local storage - REMOVE */}
-        <TouchableOpacity style={styles.taskButton} onPress={() => {getData()}}>
-            <VectorIcons name="glass" color="#123456" size={70}/>
-        </TouchableOpacity>
       </View>
+      {/* render out all completed todo items */}
+      {completeList.length > 0 ? <View style={styles.textHeader}><Text style={styles.smallerHeader}>Completed Tasks</Text></View> : null }
+      {completeList.map((item, id) => (
+          <View key={id} style={styles.listItem}>
+            <Text style={styles.textSize}>{item.item}</Text>
+            {/* remove completed todo item */}
+            <TouchableOpacity onPress={() => {removeComplete(item.id)}}>
+                <VectorIcons name="remove" color="#123456" size={70}/>
+            </TouchableOpacity>
+          </View>
+      ))}
     </ScrollView>
   );
 }
 
-function CompleteScreen() {
+function AccountScreen({ navigation }) {
+  const signOut = () => {
+    signedIn = false;
+    navigation.navigate("SignIn");
+  }
+
+  const isFocused = useIsFocused();
+
+  isFocused? taskUpdate = !taskUpdate : null;
+
+  useEffect(() => {
+    console.log("meow");
+  }, [taskUpdate])
+
   return (
     <ScrollView contentContainerStyle={styles.basic}>
       <View style={styles.textHeader}>
-          <Text style={styles.headerFont}>Completed Tasks</Text>
+          <Text style={styles.smallerHeader}>Hi, {userName}</Text>
       </View>
-    </ScrollView>
-  );
-}
-
-function AccountScreen() {
-  return (
-    <ScrollView contentContainerStyle={styles.basic}>
-      <View style={styles.textHeader}>
-          <Text style={styles.headerFont}>Hi, {userName}</Text>
-      </View>
-      <View>
-        <View>
-
+      <View style={styles.inlineEvenly}>
+        <View style={styles.statBox}>
+          <View style={styles.numBox}>
+            <Text style={styles.statNum}>{finishedTask}</Text>
+          </View>
+          <View style={styles.textBox}>
+            <Text style={styles.statText}>Completed Tasks</Text>
+          </View>
         </View>
-        <View>
-          
+        <View style={styles.statBox}>
+          <View style={styles.numBox}>
+            <Text style={styles.statNum}>{pendingTask}</Text>
+          </View>
+          <View style={styles.textBox}>
+            <Text style={styles.statText}>Pending Tasks</Text>
+          </View>
         </View>
       </View>
       <View style={styles.smallView}>
-        <TouchableOpacity onPress={() => {navigation.navigate("SignUp")}}>
+        <TouchableOpacity onPress={() => {signOut()}}>
           <Text style={styles.logoutLink}>Log out {userName}</Text>
         </TouchableOpacity>
       </View>
@@ -249,14 +269,6 @@ function TabNavigator() {
         options={{
           tabBarLabel: "Home",
           tabBarIcon: ({focused}) => (<VectorIcons name="list" color={focused? "#ff6347": "#808080"} size={25}/>)
-        }}
-      />
-      <Tab.Screen
-        name="Complete"
-        component={CompleteScreen}
-        options={{
-          tabBarLabel: "Complete",
-          tabBarIcon: ({focused}) => (<VectorIcons name="check-square-o" color={focused? "#ff6347": "#808080"} size={29}/>)
         }}
       />
       <Tab.Screen
@@ -333,9 +345,9 @@ function SignInScreen({ navigation }) {
           </TouchableOpacity>
         </View>
         <View style={styles.smallView}>
-          <Text style={styles.registerText}>Don't have an account? </Text>
+          <Text style={styles.smallText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => {navigation.navigate("SignUp")}}>
-            <Text style={styles.registerLink}>Sign up.</Text>
+            <Text style={styles.smallLink}>Sign up</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -395,6 +407,12 @@ function SignUpScreen({ navigation }) {
               <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
+        <View style={styles.smallView}>
+          <Text style={styles.smallText}>Have an account? </Text>
+          <TouchableOpacity onPress={() => {navigation.navigate("SignIn")}}>
+            <Text style={styles.smallLink}>Log in</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );
@@ -422,11 +440,6 @@ const styles = StyleSheet.create({
     flexGrow: 1
   },
 
-  botCen: {
-    justifyContent: "flex-end",
-    flex: 1
-  },
-
   enabledButton: {
     opacity: 1
   },
@@ -436,7 +449,7 @@ const styles = StyleSheet.create({
   },
 
   taskButton: {
-    margin: 15
+    marginTop: 5,
   },
 
   generalModal: {
@@ -448,6 +461,13 @@ const styles = StyleSheet.create({
   inlineTogether: {
     flexDirection: "row",
     justifyContent: "space-between"
+  },
+
+  inlineEvenly: {
+    flexDirection: "row",
+    justifyContent: "space-evenly",
+    width: "100%",
+    flexGrow: 1
   },
 
   lineText: {
@@ -474,7 +494,7 @@ const styles = StyleSheet.create({
 
   listItem: {
     padding: 20,
-    marginTop: 10,
+    margin: 5,
     width: "90%",
     borderRadius: 10,
     backgroundColor: "#ffffff",
@@ -503,7 +523,10 @@ const styles = StyleSheet.create({
 
   textHeader: {
     width: "100%",
-    padding: 20
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingLeft: 20,
+    paddingRight: 20
   },
 
   headerFont: {
@@ -520,11 +543,11 @@ const styles = StyleSheet.create({
     alignItems: "flex-end"
   },
 
-  registerText: {
+  smallText: {
     fontSize: 14
   },
 
-  registerLink: {
+  smallLink: {
     fontSize: 14,
     color: "#2771ba"
   },
@@ -532,5 +555,48 @@ const styles = StyleSheet.create({
   logoutLink: {
     fontSize: 14,
     color: "#ba2727"
+  },
+
+  smallerHeader: {
+    fontSize: 30,
+    fontWeight: "bold"
+  },
+
+  itemCenter: {
+    padding: 20,
+    margin: 5,
+    width: "90%",
+    borderRadius: 10,
+    backgroundColor: "#c2d9f0",
+    alignItems: "center"
+  },
+
+  statBox: {
+    width: "45%",
+    height: "30%",
+    backgroundColor: "#ffffff",
+    borderRadius: 10
+  },
+  
+  numBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    flex: 1,
+  },
+
+  textBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10
+  },
+  
+  statNum: {
+    fontSize: 30,
+    fontWeight: "bold"
+  },
+
+  statText: {
+    fontSize: 14,
+    opacity: 0.7
   }
 });
