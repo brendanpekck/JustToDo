@@ -14,6 +14,8 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 //initialize todo item's id
 let taskID = 0;
+//store username
+let userName = "bruh";
 
 //home screen/list of todo items
 function HomeScreen() {
@@ -31,6 +33,8 @@ function HomeScreen() {
   const [completeTask, setCompleteTask] = useState("");
   //list of all completed todo items
   const [completeList, setCompleteList] = useState([]);
+  //submit button state
+  const [disabled, setDisabled] = useState(true);
 
   //store data locally
   const storeData = async (value) => {
@@ -99,11 +103,19 @@ function HomeScreen() {
     }
   }
 
+  useEffect(() => {
+    if (taskItem != "") {
+      setDisabled(false);
+    } else {
+      setDisabled(true);
+    }
+  }, [taskItem])
+
   return (
     <ScrollView contentContainerStyle={styles.basic}>
       <View style={styles.textHeader}>
-          <Text style={styles.loginText}>Tasks</Text>
-        </View>
+          <Text style={styles.headerFont}>Tasks</Text>
+      </View>
       {/* render out all todo items */}
       {taskList.map((item, id) => (
         <View key={id} style={styles.listItem}>
@@ -134,7 +146,7 @@ function HomeScreen() {
       ))}
       {/* pop up for user input to add to list of todo items */}
       <View>
-        <Modal isVisible={addModal}>
+        <Modal isVisible={addModal} onBackButtonPress={() => setAddModal(false)} onBackdropPress={() => setAddModal(false)}>
           <View style={styles.generalModal}>
             {/* arrange input box and submit button next to each other */}
             <View style={styles.inlineTogether}>
@@ -144,10 +156,8 @@ function HomeScreen() {
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
-                <TouchableOpacity onPress={() => {storeData({id: taskID++, item: taskItem}); setAddModal(false);}}>
-                  <View>
-                    <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
-                  </View>
+                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {storeData({id: taskID++, item: taskItem}); setAddModal(false);}}>
+                  <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
                 </TouchableOpacity>
               </View>
             </View>
@@ -156,20 +166,18 @@ function HomeScreen() {
       </View>
       {/* pop up for user input to edit list of todo items */}
       <View>
-        <Modal isVisible={editModal}>
+        <Modal isVisible={editModal} onBackButtonPress={() => setEditModal(false)} onBackdropPress={() => setEditModal(false)}>
           <View style={styles.generalModal}>
             {/* arrange input box and submit button next to each other */}
             <View style={styles.inlineTogether}>
               {/* take in user input */}
               <View style={styles.lineText}>
-                <TextInput placeholder="Add new task" defaultValue={taskItem} onChangeText={newItem => setTaskItem(newItem)} style={styles.inputSize}/>
+                <TextInput placeholder="Edit task" defaultValue={taskItem} onChangeText={newItem => setTaskItem(newItem)} style={styles.inputSize}/>
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
-                <TouchableOpacity onPress={() => {editData(editKey, taskItem); setEditModal(false);}}>
-                  <View>
+                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {editData(editKey, taskItem); setEditModal(false);}}>
                     <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
-                  </View>
                 </TouchableOpacity>
               </View>
             </View>
@@ -190,21 +198,34 @@ function HomeScreen() {
   );
 }
 
-function AccountScreen() {
+function CompleteScreen() {
   return (
     <ScrollView contentContainerStyle={styles.basic}>
-      <View>
-        <Text>Account</Text>
+      <View style={styles.textHeader}>
+          <Text style={styles.headerFont}>Completed Tasks</Text>
       </View>
     </ScrollView>
   );
 }
 
-function SettingScreen() {
+function AccountScreen() {
   return (
     <ScrollView contentContainerStyle={styles.basic}>
+      <View style={styles.textHeader}>
+          <Text style={styles.headerFont}>Hi, {userName}</Text>
+      </View>
       <View>
-        <Text>Settings</Text>
+        <View>
+
+        </View>
+        <View>
+          
+        </View>
+      </View>
+      <View style={styles.smallView}>
+        <TouchableOpacity onPress={() => {navigation.navigate("SignUp")}}>
+          <Text style={styles.logoutLink}>Log out {userName}</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -231,19 +252,19 @@ function TabNavigator() {
         }}
       />
       <Tab.Screen
+        name="Complete"
+        component={CompleteScreen}
+        options={{
+          tabBarLabel: "Complete",
+          tabBarIcon: ({focused}) => (<VectorIcons name="check-square-o" color={focused? "#ff6347": "#808080"} size={29}/>)
+        }}
+      />
+      <Tab.Screen
         name="Account"
         component={AccountScreen}
         options={{
           tabBarLabel: "Account",
           tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#ff6347": "#808080"} size={28}/>)
-        }}
-      />
-      <Tab.Screen
-        name="Settings"
-        component={SettingScreen}
-        options={{
-          tabBarLabel: "Settings",
-          tabBarIcon: ({focused}) => (<VectorIcons name="gear" color={focused? "#ff6347": "#808080"} size={30}/>)
         }}
       />
     </Tab.Navigator>
@@ -275,6 +296,7 @@ function SignInScreen({ navigation }) {
       let pword = await SecureStore.getItemAsync(key);
       if (pword == value) {
         setSignIn(true);
+        userName = key;
         navigation.navigate("TabNavigator");
       } else {
         setSignIn(false);
@@ -296,7 +318,7 @@ function SignInScreen({ navigation }) {
     <ScrollView contentContainerStyle={styles.basic}>
       <View style={styles.maxWidth}>
         <View style={styles.textHeader}>
-          <Text style={styles.loginText}>Log into existing account.</Text>
+          <Text style={styles.headerFont}>Log into existing account.</Text>
         </View>
         <View style={styles.loginInput}>
           <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={15}/>
@@ -310,7 +332,7 @@ function SignInScreen({ navigation }) {
               <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
-        <View style={styles.registerView}>
+        <View style={styles.smallView}>
           <Text style={styles.registerText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => {navigation.navigate("SignUp")}}>
             <Text style={styles.registerLink}>Sign up.</Text>
@@ -335,6 +357,7 @@ function SignUpScreen({ navigation }) {
     try {
       if (password == passwordC) {
         await SecureStore.setItemAsync(key, value);
+        userName = key;
         navigation.navigate("TabNavigator");
       } else {
         Alert.alert("test", "test", [{test: "ok"}]);
@@ -356,7 +379,7 @@ function SignUpScreen({ navigation }) {
     <ScrollView contentContainerStyle={styles.basic}>
       <View style={styles.maxWidth}>
         <View style={styles.textHeader}>
-          <Text style={styles.loginText}>Create new account.</Text>
+          <Text style={styles.headerFont}>Create new account.</Text>
         </View>
         <View style={styles.loginInput}>
           <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={20}/>
@@ -380,7 +403,7 @@ function SignUpScreen({ navigation }) {
 function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="SignIn" screenOptions={{headerShown: false}}>
+      <Stack.Navigator initialRouteName="TabNavigator" screenOptions={{headerShown: false}}>
           <Stack.Screen name="SignIn" component={SignInScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
           <Stack.Screen name="TabNavigator" component={TabNavigator} />
@@ -405,11 +428,10 @@ const styles = StyleSheet.create({
   },
 
   enabledButton: {
-    margin: 15
+    opacity: 1
   },
 
   disabledButton: {
-    margin: 15,
     opacity: 0.5
   },
 
@@ -476,6 +498,7 @@ const styles = StyleSheet.create({
   loginButton: {
     width: "100%",
     alignItems: "flex-end",
+    padding: 15
   },
 
   textHeader: {
@@ -483,12 +506,12 @@ const styles = StyleSheet.create({
     padding: 20
   },
 
-  loginText: {
+  headerFont: {
     fontSize: 40,
     fontWeight: "bold"
   },
 
-  registerView: {
+  smallView: {
     padding: 15,
     width: "100%",
     flexDirection: "row",
@@ -504,5 +527,10 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: 14,
     color: "#2771ba"
+  },
+
+  logoutLink: {
+    fontSize: 14,
+    color: "#ba2727"
   }
 });
