@@ -1,11 +1,15 @@
 import React, {useEffect, useState} from "react";
-import { StyleSheet, Text, View, ScrollView, Button, StatusBar, TouchableOpacity, Pressable, TextInput, FlatList } from "react-native";
+import { StyleSheet, Text, View, ScrollView, Button, StatusBar, TouchableOpacity, Pressable, TextInput, FlatList, Alert } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator, useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import VectorIcons from "react-native-vector-icons/FontAwesome";
 import Modal from "react-native-modal";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
+//stack navigation
+const Stack = createNativeStackNavigator();
 //bottom tab navigation
 const Tab = createBottomTabNavigator();
 //initialize todo item's id
@@ -97,6 +101,9 @@ function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.basic}>
+      <View style={styles.textHeader}>
+          <Text style={styles.loginText}>Tasks</Text>
+        </View>
       {/* render out all todo items */}
       {taskList.map((item, id) => (
         <View key={id} style={styles.listItem}>
@@ -203,44 +210,181 @@ function SettingScreen() {
   );
 }
 
+function TabNavigator() {
+  return (
+    <Tab.Navigator
+      initialRouteName="Home"
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          height: 50
+        }
+      }}
+    >
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          tabBarLabel: "Home",
+          tabBarIcon: ({focused}) => (<VectorIcons name="list" color={focused? "#ff6347": "#808080"} size={25}/>)
+        }}
+      />
+      <Tab.Screen
+        name="Account"
+        component={AccountScreen}
+        options={{
+          tabBarLabel: "Account",
+          tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#ff6347": "#808080"} size={28}/>)
+        }}
+      />
+      <Tab.Screen
+        name="Settings"
+        component={SettingScreen}
+        options={{
+          tabBarLabel: "Settings",
+          tabBarIcon: ({focused}) => (<VectorIcons name="gear" color={focused? "#ff6347": "#808080"} size={30}/>)
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+function SignInScreen({ navigation }) {
+  //username
+  const [username, setUsername] = useState("");
+  //password
+  const [password, setPassword] = useState("");
+  //login state
+  const [signIn, setSignIn] = useState(false);
+  //sign in button state
+  const [disabled, setDisabled] = useState(true);
+
+  const getInfo = async (key) => {
+    try {
+      let test = await SecureStore.getItemAsync(key);
+      console.log(test);
+    } catch (e) {
+      setSignIn(false);
+    }
+  }
+
+  //authenticate user
+  const checkInfo = async (key, value) => {
+    try {
+      let pword = await SecureStore.getItemAsync(key);
+      if (pword == value) {
+        setSignIn(true);
+        navigation.navigate("TabNavigator");
+      } else {
+        setSignIn(false);
+      }
+    } catch (e) {
+      setSignIn(false);
+    }
+  }
+
+  useEffect(() => {
+    if (username != "" && password != "") {
+      setDisabled(false);
+    } else {
+      setDisabled(true);
+    }
+  }, [username, password])
+
+  return (
+    <ScrollView contentContainerStyle={styles.basic}>
+      <View style={styles.maxWidth}>
+        <View style={styles.textHeader}>
+          <Text style={styles.loginText}>Log into existing account.</Text>
+        </View>
+        <View style={styles.loginInput}>
+          <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={15}/>
+        </View>
+        <View style={styles.loginInput}>
+          <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
+        </View>
+        {/* authenticate login info */}
+        <View style={styles.loginButton}>
+          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {checkInfo(username, password)}}>
+              <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.registerView}>
+          <Text style={styles.registerText}>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => {navigation.navigate("SignUp")}}>
+            <Text style={styles.registerLink}>Sign up.</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function SignUpScreen({ navigation }) {
+  //username
+  const [username, setUsername] = useState("");
+  //password
+  const [password, setPassword] = useState("");
+  //confirm password
+  const [passwordC, setPasswordC] = useState("");
+  //sign up button state
+  const [disabled, setDisabled] = useState(true);
+
+  const storeInfo = async (key, value) => {
+    try {
+      if (password == passwordC) {
+        await SecureStore.setItemAsync(key, value);
+        navigation.navigate("TabNavigator");
+      } else {
+        Alert.alert("test", "test", [{test: "ok"}]);
+      }
+    } catch (e) {''
+      console.log(key);
+    }
+  }
+
+  useEffect(() => {
+    if (username != "" && password != "" && passwordC != "") {
+      setDisabled(false);
+    } else {
+      setDisabled(true);
+    }
+  }, [username, password, passwordC])
+
+  return (
+    <ScrollView contentContainerStyle={styles.basic}>
+      <View style={styles.maxWidth}>
+        <View style={styles.textHeader}>
+          <Text style={styles.loginText}>Create new account.</Text>
+        </View>
+        <View style={styles.loginInput}>
+          <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={20}/>
+        </View>
+        <View style={styles.loginInput}>
+          <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
+        </View>
+        <View style={styles.loginInput}>
+          <TextInput placeholder="Confirm Password" defaultValue={passwordC} onChangeText={password => setPasswordC(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
+        </View>
+        <View style={styles.loginButton}>
+          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {storeInfo(username, password)}}>
+              <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
 function App() {
   return (
     <NavigationContainer>
-        <Tab.Navigator
-          initialRouteName="Home"
-          screenOptions={{
-            headerShown: false,
-            tabBarShowLabel: false,
-            tabBarStyle: {
-              height: 50
-            }
-          }}
-        >
-          <Tab.Screen
-            name="Home"
-            component={HomeScreen}
-            options={{
-              tabBarLabel: "Home",
-              tabBarIcon: ({focused}) => (<VectorIcons name="list" color={focused? "#ff6347": "#808080"} size={25}/>)
-            }}
-          />
-          <Tab.Screen
-            name="Account"
-            component={AccountScreen}
-            options={{
-              tabBarLabel: "Account",
-              tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#ff6347": "#808080"} size={28}/>)
-            }}
-          />
-          <Tab.Screen
-            name="Settings"
-            component={SettingScreen}
-            options={{
-              tabBarLabel: "Settings",
-              tabBarIcon: ({focused}) => (<VectorIcons name="gear" color={focused? "#ff6347": "#808080"} size={30}/>)
-            }}
-          />
-        </Tab.Navigator>
+      <Stack.Navigator initialRouteName="SignIn" screenOptions={{headerShown: false}}>
+          <Stack.Screen name="SignIn" component={SignInScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="TabNavigator" component={TabNavigator} />
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }
@@ -260,8 +404,17 @@ const styles = StyleSheet.create({
     flex: 1
   },
 
+  enabledButton: {
+    margin: 15
+  },
+
+  disabledButton: {
+    margin: 15,
+    opacity: 0.5
+  },
+
   taskButton: {
-    margin: 10
+    margin: 15
   },
 
   generalModal: {
@@ -289,7 +442,7 @@ const styles = StyleSheet.create({
   },
 
   inputSize: {
-    fontSize: 20,
+    fontSize: 18,
     padding: 15
   },
 
@@ -303,5 +456,53 @@ const styles = StyleSheet.create({
     width: "90%",
     borderRadius: 10,
     backgroundColor: "#ffffff",
+  },
+
+  maxWidth: {
+    width: "100%",
+    color: "#f8f8f8",
+    alignItems: "center",
+    flexGrow: 1
+  },
+
+  loginInput: {
+    padding: 5,
+    marginTop: 10,
+    width: "90%",
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+  },
+
+  loginButton: {
+    width: "100%",
+    alignItems: "flex-end",
+  },
+
+  textHeader: {
+    width: "100%",
+    padding: 20
+  },
+
+  loginText: {
+    fontSize: 40,
+    fontWeight: "bold"
+  },
+
+  registerView: {
+    padding: 15,
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    flexGrow: 1,
+    alignItems: "flex-end"
+  },
+
+  registerText: {
+    fontSize: 14
+  },
+
+  registerLink: {
+    fontSize: 14,
+    color: "#2771ba"
   }
 });
