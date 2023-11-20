@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
-import { StyleSheet, Text, View, ScrollView, Button, StatusBar, TouchableOpacity, Pressable, TextInput, FlatList, Alert } from "react-native";
-import { NavigationContainer, useIsFocused } from "@react-navigation/native";
+import { StyleSheet, Text, View, ScrollView, Button, StatusBar, TouchableOpacity, Pressable, TextInput, FlatList, Alert, BackHandler } from "react-native";
+import { NavigationContainer, useIsFocused, useFocusEffect } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator, useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import VectorIcons from "react-native-vector-icons/FontAwesome";
@@ -14,10 +14,10 @@ import * as SQLite from "expo-sqlite";
 const Stack = createNativeStackNavigator();
 //bottom tab navigation
 const Tab = createBottomTabNavigator();
-//initialize todo item's id
-let taskID = 0;
+//store user id
+let userID = -1;
 //store username
-let userName = "bruh";
+let userName = "";
 //sign in "token"
 let signedIn = false;
 //track finished task
@@ -27,7 +27,13 @@ let pendingTask = 0;
 //tasks count update switch
 let taskUpdate = false;
 
-//const db = SQLite.openDatabase("ToDo");
+//database
+function openDatabase() {
+  const db = SQLite.openDatabase("db.db");
+  return db;
+}
+const db = openDatabase();
+
 
 //home screen/list of todo items
 function HomeScreen() {
@@ -56,6 +62,14 @@ function HomeScreen() {
     } catch (e) {
       console.log("store error");
     }
+  }
+
+  const addItem = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("")
+      }
+    )
   }
 
   //debug - get locally stored data - REMOVE
@@ -116,6 +130,16 @@ function HomeScreen() {
       console.log("remove complete error");
     }
   }
+  
+  useEffect(() => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql(
+          "create table if not exists items (id integer foreign key references users(id), itemid integer primary key autoincrement, item varchar(50));"
+        );
+      }
+    );
+  }, [])
 
   useEffect(() => {
     if (taskItem != "") {
@@ -156,7 +180,7 @@ function HomeScreen() {
             <View style={styles.inlineTogether}>
               {/* take in user input */}
               <View style={styles.lineText}>
-                <TextInput placeholder="Add new task" defaultValue={taskItem} onChangeText={newItem => setTaskItem(newItem)} style={styles.inputSize}/>
+                <TextInput placeholder="Add new task" defaultValue={taskItem} onChangeText={newItem => setTaskItem(newItem)} style={styles.inputSize} maxLength={50}/>
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
@@ -176,7 +200,7 @@ function HomeScreen() {
             <View style={styles.inlineTogether}>
               {/* take in user input */}
               <View style={styles.lineText}>
-                <TextInput placeholder="Edit task" defaultValue={taskItem} onChangeText={newItem => setTaskItem(newItem)} style={styles.inputSize}/>
+                <TextInput placeholder="Edit task" defaultValue={taskItem} onChangeText={newItem => setTaskItem(newItem)} style={styles.inputSize} maxLength={50}/>
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
@@ -211,6 +235,8 @@ function HomeScreen() {
 
 function AccountScreen({ navigation }) {
   const signOut = () => {
+    userID = -1;
+    userName = "";
     signedIn = false;
     navigation.navigate("SignIn");
   }
@@ -303,15 +329,13 @@ function SignInScreen({ navigation }) {
   const [signIn, setSignIn] = useState(false);
   //sign in button state
   const [disabled, setDisabled] = useState(true);
+  //wrong username
+  const [wrongName, setWrongName] = useState(false);
+  //wrong password
+  const [wrongPass, setWrongPass] = useState(false);
 
-  const getInfo = async (key) => {
-    try {
-      let test = await SecureStore.getItemAsync(key);
-    } catch (e) {
-      setSignIn(false);
-    }
-  }
-
+  //local storage
+  /*
   //authenticate user
   const checkInfo = async (key, value) => {
     try {
@@ -327,6 +351,17 @@ function SignInScreen({ navigation }) {
       setSignIn(false);
     }
   }
+  */
+
+  useEffect(() => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql(
+          "create table if not exists users (id integer primary key autoincrement, uname varchar(30), pword varchar);"
+        );
+      }
+    );
+  }, [])
 
   useEffect(() => {
     if (username != "" && password != "") {
@@ -335,6 +370,44 @@ function SignInScreen({ navigation }) {
       setDisabled(true);
     }
   }, [username, password])
+
+  useEffect(() => {
+    setWrongName(false);
+  }, [username])
+
+  useEffect(() => {
+    setWrongPass(false);
+  }, [password])
+
+  const checkUser = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("select * from users where uname = ?", [username], (txObj, { rows }) => {
+          if (rows.length > 0) {
+            userID = rows.item(0).id;
+            console.log(userID);
+            setWrongName(false);
+            const encryptPass = (SHA256(password)).toString();
+            //tx.executeSql("insert into users (uname, pword) values (?, ?)", [name, encryptPass]);
+            if (encryptPass == rows.item(0).pword) {
+              setWrongPass(false);
+              userName = username;
+              signedIn = true;
+              setUsername("");
+              setPassword("");
+              navigation.navigate("TabNavigator");
+            } else {
+              setWrongPass(true);
+              console.log("wrongpassword");
+            }
+          } else {
+            setWrongName(true);
+            console.log("wrongusername");
+          }
+        });
+      }
+    );
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.basic}>
@@ -345,12 +418,14 @@ function SignInScreen({ navigation }) {
         <View style={styles.loginInput}>
           <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={15}/>
         </View>
+        {wrongName? <View style={styles.errorText}><Text style={styles.errorFont}>There is no account with that username.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
         </View>
+        {wrongPass? <View style={styles.errorText}><Text style={styles.errorFont}>Incorrect password.</Text></View> : null}
         {/* authenticate login info */}
         <View style={styles.loginButton}>
-          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {checkInfo(username, password)}}>
+          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {checkUser()}}>
               <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
@@ -365,13 +440,6 @@ function SignInScreen({ navigation }) {
   );
 }
 
-function openDatabase() {
-  const db = SQLite.openDatabase("db.db");
-  return db;
-}
-
-const db = openDatabase();
-
 function SignUpScreen({ navigation }) {
   //username
   const [username, setUsername] = useState("");
@@ -381,7 +449,12 @@ function SignUpScreen({ navigation }) {
   const [passwordC, setPasswordC] = useState("");
   //sign up button state
   const [disabled, setDisabled] = useState(true);
+  //username in use
+  const [nameTaken, setNameTaken] = useState(false);
+  //password not matched
+  const [mismatch, setMismatch] = useState(false);
 
+  //local storage
   /*
   const storeInfo = async (key, value) => {
     try {
@@ -399,12 +472,6 @@ function SignUpScreen({ navigation }) {
   */
 
   useEffect(() => {
-    db.transaction((tx) => {
-      tx.executeSql(
-        "create table if not exists users (id integer primary key autoincrement, uname varchar(30), pword varchar);"
-      );
-    });
-
     if (username != "" && password != "" && passwordC != "") {
       setDisabled(false);
     } else {
@@ -412,19 +479,42 @@ function SignUpScreen({ navigation }) {
     }
   }, [username, password, passwordC])
 
-  
+  useEffect(() => {
+    setNameTaken(false);
+  }, [username])
 
-  const addUser = (name, pass) => {
-    const encryptPass = (SHA256(pass)).toString();
+  useEffect(() => {
+    setMismatch(false);
+  }, [password, passwordC])
+
+  const addUser = () => {
     db.transaction(
       (tx) => {
-        tx.executeSql("insert into users (uname, pword) values (?, ?)", [name, encryptPass]);
-        tx.executeSql("select * from users", [], (txObj, { rows }) =>
-          console.log(rows.length),
-          //rows.item(0).uname
-          signedIn = true
-        );
-      });
+        tx.executeSql("select * from users where uname = ?", [username], (txObj, { rows }) => {
+          if (rows.length == 0 && password == passwordC) {
+            setNameTaken(false);
+            setMismatch(false);
+            const encryptPass = (SHA256(password)).toString();
+            tx.executeSql("insert into users (uname, pword) values (?, ?)", [username, encryptPass]);
+            userName = username;
+            signedIn = true;
+            setUsername("");
+            setPassword("");
+            setPasswordC("");
+            navigation.navigate("TabNavigator");
+          } else {
+            if (rows.length > 0) {
+              setNameTaken(true);
+              console.log("nametaken");
+            }
+            if (password != passwordC){
+              setMismatch(true);
+              console.log("passwordmismatch");
+            }
+          }
+        });
+      }
+    );
   };
 
   return (
@@ -436,14 +526,17 @@ function SignUpScreen({ navigation }) {
         <View style={styles.loginInput}>
           <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={20}/>
         </View>
+        {nameTaken? <View style={styles.errorText}><Text style={styles.errorFont}>A user with that username already exists.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
         </View>
+        {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Confirm Password" defaultValue={passwordC} onChangeText={password => setPasswordC(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
         </View>
+        {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
         <View style={styles.loginButton}>
-          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addUser(username, password)}}>
+          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addUser()}}>
               <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
@@ -463,7 +556,7 @@ function TestScreen() {}
 function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="SignUp" screenOptions={{headerShown: false}}>
+      <Stack.Navigator initialRouteName="SignIn" screenOptions={{headerShown: false}}>
           <Stack.Screen name="SignIn" component={SignInScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
           <Stack.Screen name="TabNavigator" component={TabNavigator} />
@@ -640,5 +733,14 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 14,
     opacity: 0.7
+  },
+
+  errorText: {
+    width: "90%"
+  },
+
+  errorFont: {
+    fontSize: 14,
+    color: "#ba2727"
   }
 });
