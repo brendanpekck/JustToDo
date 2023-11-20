@@ -1,21 +1,25 @@
 import React, {useEffect, useState} from "react";
-import { StyleSheet, Text, View, ScrollView, Button, StatusBar, TouchableOpacity, Pressable, TextInput, FlatList, Alert, BackHandler } from "react-native";
-import { NavigationContainer, useIsFocused, useFocusEffect } from "@react-navigation/native";
+import { StyleSheet, Text, View, ScrollView, StatusBar, TouchableOpacity, TextInput, BackHandler } from "react-native";
+import { NavigationContainer, useIsFocused } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { createBottomTabNavigator, useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import VectorIcons from "react-native-vector-icons/FontAwesome";
-import Modal from "react-native-modal";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
+import Modal from "react-native-modal";;
 import { SHA256 } from "crypto-es/lib/sha256";
 import * as SQLite from "expo-sqlite";
+
+//local storage imports
+/*
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store'
+*/
 
 //stack navigation
 const Stack = createNativeStackNavigator();
 //bottom tab navigation
 const Tab = createBottomTabNavigator();
 //store user id
-let userID = -1;
+let userID = 0;
 //store username
 let userName = "";
 //sign in "token"
@@ -26,14 +30,19 @@ let finishedTask = 0;
 let pendingTask = 0;
 //tasks count update switch
 let taskUpdate = false;
+//list update switch
+let listUpdate = false;
+//incomplete list persistence
+let unfinishedList = null;
+//complete list persistence
+let finishedList = null;
 
 //database
 function openDatabase() {
-  const db = SQLite.openDatabase("db.db");
+  const db = SQLite.openDatabase("leafy.db");
   return db;
 }
 const db = openDatabase();
-
 
 //home screen/list of todo items
 function HomeScreen() {
@@ -51,7 +60,11 @@ function HomeScreen() {
   const [completeList, setCompleteList] = useState([]);
   //submit button state
   const [disabled, setDisabled] = useState(true);
+  //screen update switch
+  const [updateSwitch, setUpdateSwitch] = useState(false);
 
+  //local storage
+  /*
   //add todo item to todo list
   const storeData = async (value) => {
     try {
@@ -60,26 +73,7 @@ function HomeScreen() {
       setTaskItem("");
       pendingTask++;
     } catch (e) {
-      console.log("store error");
-    }
-  }
-
-  const addItem = () => {
-    db.transaction(
-      (tx) => {
-        tx.executeSql("")
-      }
-    )
-  }
-
-  //debug - get locally stored data - REMOVE
-  const getData = async () => {
-    try {
-      const jsonValue = await AsyncStorage.getItem("compl");
-      console.log(jsonValue);
-      return jsonValue != null? JSON.parse(jsonValue) : null;
-    } catch (e) {
-      console.log("retrieve error");
+      console.log(error);
     }
   }
 
@@ -91,7 +85,7 @@ function HomeScreen() {
       await AsyncStorage.setItem("tasky", JSON.stringify(deleteItem));
       pendingTask--;
     } catch (e) {
-      console.log("delete error");
+      console.log(error);
     }
   }
 
@@ -103,7 +97,7 @@ function HomeScreen() {
       setTaskList(replaceItem);
       await AsyncStorage.setItem("tasky", JSON.stringify(replaceItem));
     } catch (e) {
-      console.log("edit error");
+      console.log(error);
     }
   }
 
@@ -115,7 +109,7 @@ function HomeScreen() {
       setCompleteList([...completeList, value]);
       finishedTask++;
     } catch (e) {
-      console.log("mark error");
+      console.log(error);
     }
   }
 
@@ -127,20 +121,24 @@ function HomeScreen() {
       await AsyncStorage.setItem("compl", JSON.stringify(deleteItem));
       finishedTask--;
     } catch (e) {
-      console.log("remove complete error");
+      console.log(error);
     }
   }
+  */
   
+  //create items table
   useEffect(() => {
     db.transaction(
       (tx) => {
-        tx.executeSql(
-          "create table if not exists items (id integer foreign key references users(id), itemid integer primary key autoincrement, item varchar(50));"
-        );
+        tx.executeSql("CREATE TABLE IF NOT EXISTS items (item_id INTEGER PRIMARY KEY, user_id INTEGER, item VARCHAR, status TEXT)");
       }
     );
+
+    //check for persistent list
+    checkList();
   }, [])
 
+  //disable submit button when input is empty
   useEffect(() => {
     if (taskItem != "") {
       setDisabled(false);
@@ -149,25 +147,172 @@ function HomeScreen() {
     }
   }, [taskItem])
 
+  //switch for state
+  const isFocused = useIsFocused();
+  isFocused? listUpdate = !listUpdate : null;
+
+  useEffect(() => {
+  }, [listUpdate])
+
+  //get list of incomplete tasks created by the user
+  const getIncomplete = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("SELECT * FROM items WHERE user_id = ? AND status = ?", [userID, "incomplete"], (txObj, { rows }) => {
+          setTaskList(rows._array);
+        }, (txObk, error) => {
+          console.log(error)
+        });
+      }
+    );
+  }
+
+  //get list of complete task created by the user
+  const getComplete = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("SELECT * FROM items WHERE user_id = ? AND status = ?", [userID, "complete"], (txObj, { rows }) => {
+          setCompleteList(rows._array);
+        }, (txObk, error) => {
+          console.log(error)
+        });
+      }
+    );
+  }
+
+  //add tasks to todo list
+  const addItem = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("INSERT INTO items (user_id, item, status) VALUES (?, ?, ?)", [userID, taskItem, "incomplete"], (txObj, { rows }) => { 
+          getIncomplete();
+          setTaskItem("");
+          pendingTask++;
+          tx.executeSql("UPDATE users SET utask = ? WHERE user_id = ?", [pendingTask, userID], (txObj, { rows }) => {
+          }, (txObk, error) => {
+            console.log(error)
+          });
+          setUpdateSwitch(!updateSwitch);
+        }, (txObk, error) => {
+          console.log(error)
+        });
+      }
+    );
+  }
+
+  //remove task from todo list
+  const removeItem = (key) => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("DELETE FROM items WHERE item_id = ?", [key], (txObj, { rows }) => {
+          getIncomplete();
+          pendingTask--;
+          tx.executeSql("UPDATE users SET utask = ? WHERE user_id = ?", [pendingTask, userID], (txObj, { rows }) => {
+          }, (txObk, error) => {
+            console.log(error)
+          });
+          setUpdateSwitch(!updateSwitch);
+        }, (txObk, error) => {
+          console.log(error)
+        });
+      }
+    );
+  }
+
+  //remove task from todo list
+  const removeComplete = (key) => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("DELETE FROM items WHERE item_id = ?", [key], (txObj, { rows }) => {
+          getComplete();
+          finishedTask--;
+          tx.executeSql("UPDATE users SET ftask = ? WHERE user_id = ?", [finishedTask, userID], (txObj, { rows }) => {
+          }, (txObk, error) => {
+            console.log(error)
+          });
+          setUpdateSwitch(!updateSwitch);
+        }, (txObk, error) => {
+          console.log(error)
+        });
+      }
+    );
+  }
+
+  //edit tasks
+  const editItem = (value, key) => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("UPDATE items SET item = ? WHERE item_id = ?", [value, key], (txObj, { rows }) => {
+          getIncomplete();
+          setTaskItem("");
+          setUpdateSwitch(!updateSwitch);
+        }, (txObk, error) => {
+          console.log(error)
+        });
+      }
+    );
+  }
+
+  //complete task
+  const completeItem = (key) => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("UPDATE items SET status = ? WHERE item_id = ?", ["complete", key], (txObj, { rows }) => {
+          getIncomplete();
+          getComplete();
+          pendingTask--;
+          finishedTask++;
+          tx.executeSql("UPDATE users SET utask = ? WHERE user_id = ?", [pendingTask, userID], (txObj, { rows }) => {
+          }, (txObk, error) => {
+            console.log(error)
+          });
+          tx.executeSql("UPDATE users SET ftask = ? WHERE user_id = ?", [finishedTask, userID], (txObj, { rows }) => {
+          }, (txObk, error) => {
+            console.log(error)
+          });
+          setUpdateSwitch(!updateSwitch);
+        }, (txObk, error) => {
+          console.log(error)
+        });
+      }
+    );
+  }
+
+  //check stored list
+  const checkList = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("SELECT * FROM items WHERE user_id = ?", [userID], (txObj, { rows }) => {
+          if (rows.length > 0) {
+            getIncomplete();
+            getComplete();
+          }
+        }, (txObk, error) => {
+            console.log(error)
+        });
+      }
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.basic}>
       <View style={styles.textHeader}>
           <Text style={styles.smallerHeader}>Tasks</Text>
       </View>
       {/* render out all todo items */}
-      {taskList.map((item, id) => (
-        <View key={id} style={styles.listItem}>
+      {taskList.map((item) => (
+        <View key={item.item_id} style={styles.listItem}>
           <Text style={styles.textSize}>{item.item}</Text>
           {/* remove todo item */}
-          <TouchableOpacity onPress={() => {removeData(item.id)}}>
+          <TouchableOpacity onPress={() => {removeItem(item.item_id)}}>
               <VectorIcons name="remove" color="#123456" size={70}/>
           </TouchableOpacity>
           {/* edit todo item */}
-          <TouchableOpacity onPress={() => {setEditKey(item.id); setEditModal(true)}}>
+          <TouchableOpacity onPress={() => {setEditKey(item.item_id); setEditModal(true)}}>
               <VectorIcons name="edit" color="#123456" size={70}/>
           </TouchableOpacity>
           {/* mark todo item complete */}
-          <TouchableOpacity onPress={() => {completedTask({id: item.id, item: item.item})}}>
+          <TouchableOpacity onPress={() => {completeItem(item.item_id)}}>
               <VectorIcons name="check" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
@@ -184,7 +329,7 @@ function HomeScreen() {
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
-                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {storeData({id: taskID++, item: taskItem}); setAddModal(false);}}>
+                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addItem(); setAddModal(false);}}>
                   <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
                 </TouchableOpacity>
               </View>
@@ -204,7 +349,7 @@ function HomeScreen() {
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
-                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {editData(editKey, taskItem); setEditModal(false);}}>
+                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {editItem(taskItem, editKey); setEditModal(false);}}>
                     <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
                 </TouchableOpacity>
               </View>
@@ -220,31 +365,36 @@ function HomeScreen() {
       </View>
       {/* render out all completed todo items */}
       {completeList.length > 0 ? <View style={styles.textHeader}><Text style={styles.smallerHeader}>Completed Tasks</Text></View> : null }
-      {completeList.map((item, id) => (
-          <View key={id} style={styles.listItem}>
-            <Text style={styles.textSize}>{item.item}</Text>
-            {/* remove completed todo item */}
-            <TouchableOpacity onPress={() => {removeComplete(item.id)}}>
-                <VectorIcons name="remove" color="#123456" size={70}/>
-            </TouchableOpacity>
-          </View>
+      {completeList.map((item) => (
+        <View key={item.item_id} style={styles.listItem}>
+          <Text style={styles.textSize}>{item.item}</Text>
+          {/* remove completed todo item */}
+          <TouchableOpacity onPress={() => {removeComplete(item.item_id)}}>
+              <VectorIcons name="remove" color="#123456" size={70}/>
+          </TouchableOpacity>
+        </View>
       ))}
     </ScrollView>
   );
 }
 
+//user account details screen
 function AccountScreen({ navigation }) {
+  //sign out and unassign user details
   const signOut = () => {
     userID = -1;
     userName = "";
+    finishedTask = 0;
+    pendingTask = 0;
     signedIn = false;
     navigation.navigate("SignIn");
   }
 
+  //switch for state
   const isFocused = useIsFocused();
-
   isFocused? taskUpdate = !taskUpdate : null;
 
+  //check for changes in stats
   useEffect(() => {
   }, [taskUpdate])
 
@@ -253,6 +403,7 @@ function AccountScreen({ navigation }) {
       <View style={styles.textHeader}>
           <Text style={styles.smallerHeader}>Hi, {userName}</Text>
       </View>
+      {/* display user stats */}
       <View style={styles.inlineEvenly}>
         <View style={styles.statBox}>
           <View style={styles.numBox}>
@@ -271,6 +422,7 @@ function AccountScreen({ navigation }) {
           </View>
         </View>
       </View>
+      {/* sign out button */}
       <View style={styles.smallView}>
         <TouchableOpacity onPress={() => {signOut()}}>
           <Text style={styles.logoutLink}>Log out {userName}</Text>
@@ -280,6 +432,7 @@ function AccountScreen({ navigation }) {
   );
 }
 
+//bottom tab and its associated screens
 function TabNavigator() {
   return (
     <Tab.Navigator
@@ -320,6 +473,7 @@ function TabNavigator() {
   );
 }
 
+//sign in screen
 function SignInScreen({ navigation }) {
   //username
   const [username, setUsername] = useState("");
@@ -329,9 +483,9 @@ function SignInScreen({ navigation }) {
   const [signIn, setSignIn] = useState(false);
   //sign in button state
   const [disabled, setDisabled] = useState(true);
-  //wrong username
+  //check wrong username
   const [wrongName, setWrongName] = useState(false);
-  //wrong password
+  //check wrong password
   const [wrongPass, setWrongPass] = useState(false);
 
   //local storage
@@ -353,16 +507,17 @@ function SignInScreen({ navigation }) {
   }
   */
 
+  //create users table
+  //stores login info and user stats
   useEffect(() => {
     db.transaction(
       (tx) => {
-        tx.executeSql(
-          "create table if not exists users (id integer primary key autoincrement, uname varchar(30), pword varchar);"
-        );
+        tx.executeSql("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, dname VARCHAR, uname VARCHAR, pword VARCHAR, ftask INTEGER, utask INTEGER)");
       }
     );
   }, [])
 
+  //disable submit button when input is empty
   useEffect(() => {
     if (username != "" && password != "") {
       setDisabled(false);
@@ -371,43 +526,56 @@ function SignInScreen({ navigation }) {
     }
   }, [username, password])
 
+  //reset warning text
   useEffect(() => {
     setWrongName(false);
   }, [username])
 
+  //reset warning text
   useEffect(() => {
     setWrongPass(false);
   }, [password])
 
+  //authenticate user
   const checkUser = () => {
     db.transaction(
       (tx) => {
-        tx.executeSql("select * from users where uname = ?", [username], (txObj, { rows }) => {
+        //check if username exists in database
+        tx.executeSql("SELECT * FROM users WHERE uname = ?", [username.toLowerCase()], (txObj, { rows }) => {
           if (rows.length > 0) {
-            userID = rows.item(0).id;
-            console.log(userID);
+            //assign user id
+            userID = rows.item(0).user_id;
             setWrongName(false);
+            //encrypt password
             const encryptPass = (SHA256(password)).toString();
-            //tx.executeSql("insert into users (uname, pword) values (?, ?)", [name, encryptPass]);
+            //compare encrypted password
             if (encryptPass == rows.item(0).pword) {
               setWrongPass(false);
-              userName = username;
+              //assign username
+              userName = rows.item(0).dname;
+              //assign stats
+              finishedTask = rows.item(0).ftask;
+              pendingTask = rows.item(0).utask;
+              //sign in "token"
               signedIn = true;
+              //reset login inputs
               setUsername("");
               setPassword("");
               navigation.navigate("TabNavigator");
             } else {
+              //wrong password
               setWrongPass(true);
-              console.log("wrongpassword");
             }
           } else {
+            //no username found
             setWrongName(true);
-            console.log("wrongusername");
           }
+        }, (txObk, error) => {
+          console.log(error)
         });
       }
     );
-  };
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.basic}>
@@ -415,20 +583,24 @@ function SignInScreen({ navigation }) {
         <View style={styles.textHeader}>
           <Text style={styles.headerFont}>Log into existing account.</Text>
         </View>
+        {/* login inputs */}
         <View style={styles.loginInput}>
           <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={15}/>
         </View>
+        {/* no account found warning text */}
         {wrongName? <View style={styles.errorText}><Text style={styles.errorFont}>There is no account with that username.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
         </View>
+        {/* wrong password warning text */}
         {wrongPass? <View style={styles.errorText}><Text style={styles.errorFont}>Incorrect password.</Text></View> : null}
-        {/* authenticate login info */}
+        {/* submit button to authenticate login info */}
         <View style={styles.loginButton}>
           <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {checkUser()}}>
               <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
+        {/* sign up screen */}
         <View style={styles.smallView}>
           <Text style={styles.smallText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => {navigation.navigate("SignUp")}}>
@@ -440,6 +612,7 @@ function SignInScreen({ navigation }) {
   );
 }
 
+//sign up screen
 function SignUpScreen({ navigation }) {
   //username
   const [username, setUsername] = useState("");
@@ -449,9 +622,9 @@ function SignUpScreen({ navigation }) {
   const [passwordC, setPasswordC] = useState("");
   //sign up button state
   const [disabled, setDisabled] = useState(true);
-  //username in use
+  //check username  duplicate
   const [nameTaken, setNameTaken] = useState(false);
-  //password not matched
+  //check password match
   const [mismatch, setMismatch] = useState(false);
 
   //local storage
@@ -466,11 +639,12 @@ function SignUpScreen({ navigation }) {
         Alert.alert("test", "test", [{test: "ok"}]);
       }
     } catch (e) {
-      console.log(key);
+      console.log(error);
     }
   }
   */
 
+  //disable submit button when input is empty
   useEffect(() => {
     if (username != "" && password != "" && passwordC != "") {
       setDisabled(false);
@@ -479,39 +653,62 @@ function SignUpScreen({ navigation }) {
     }
   }, [username, password, passwordC])
 
+  //reset warning text
   useEffect(() => {
     setNameTaken(false);
   }, [username])
 
+  //reset warning text
   useEffect(() => {
     setMismatch(false);
   }, [password, passwordC])
 
+  //register user
   const addUser = () => {
     db.transaction(
       (tx) => {
-        tx.executeSql("select * from users where uname = ?", [username], (txObj, { rows }) => {
+        //check for duplicates
+        tx.executeSql("SELECT * FROM users WHERE uname = ?", [username.toLowerCase()], (txObj, { rows }) => {
           if (rows.length == 0 && password == passwordC) {
             setNameTaken(false);
             setMismatch(false);
+            //encrypted password for storage
             const encryptPass = (SHA256(password)).toString();
-            tx.executeSql("insert into users (uname, pword) values (?, ?)", [username, encryptPass]);
-            userName = username;
-            signedIn = true;
-            setUsername("");
-            setPassword("");
-            setPasswordC("");
-            navigation.navigate("TabNavigator");
+            //add user info to database
+            tx.executeSql("INSERT INTO users (dname, uname, pword, ftask, utask) VALUES (?, ?, ?, ?, ?)", [username, username.toLowerCase(), encryptPass, 0, 0], (txObj, { rows }) => {
+              tx.executeSql("SELECT * FROM users WHERE uname = ?", [username.toLowerCase()], (txObj, { rows }) => {
+                //assign user id
+                userID = rows.item(0).user_id;
+                //assign username
+                userName = rows.item(0).dname;
+                //assign stats
+                finishedTask = rows.item(0).ftask;
+                pendingTask = rows.item(0).utask;
+                //sign in "token"
+                signedIn = true;
+                //reset register inputs
+                setUsername("");
+                setPassword("");
+                setPasswordC("");
+                navigation.navigate("TabNavigator");
+              }, (txObk, error) => {
+                console.log(error)
+              });
+            }, (txObk, error) => {
+              console.log(error)
+            });
           } else {
             if (rows.length > 0) {
+              //name taken
               setNameTaken(true);
-              console.log("nametaken");
             }
             if (password != passwordC){
+              //password mismatch
               setMismatch(true);
-              console.log("passwordmismatch");
             }
           }
+        }, (txObk, error) => {
+          console.log(error)
         });
       }
     );
@@ -523,23 +720,28 @@ function SignUpScreen({ navigation }) {
         <View style={styles.textHeader}>
           <Text style={styles.headerFont}>Create new account.</Text>
         </View>
+        {/* register input */}
         <View style={styles.loginInput}>
           <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={20}/>
         </View>
+        {/* duplicate username warning text */}
         {nameTaken? <View style={styles.errorText}><Text style={styles.errorFont}>A user with that username already exists.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
         </View>
+        {/* mismatched password warning text */}
         {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Confirm Password" defaultValue={passwordC} onChangeText={password => setPasswordC(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
         </View>
+        {/* mismatched password warning text */}
         {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
         <View style={styles.loginButton}>
           <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addUser()}}>
               <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
+        {/* login screen */}
         <View style={styles.smallView}>
           <Text style={styles.smallText}>Have an account? </Text>
           <TouchableOpacity onPress={() => {navigation.navigate("SignIn")}}>
@@ -553,6 +755,7 @@ function SignUpScreen({ navigation }) {
 
 function TestScreen() {}
 
+//main function
 function App() {
   return (
     <NavigationContainer>
