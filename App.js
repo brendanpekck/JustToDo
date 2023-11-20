@@ -32,10 +32,6 @@ let pendingTask = 0;
 let taskUpdate = false;
 //list update switch
 let listUpdate = false;
-//incomplete list persistence
-let unfinishedList = null;
-//complete list persistence
-let finishedList = null;
 
 //database
 function openDatabase() {
@@ -130,7 +126,10 @@ function HomeScreen() {
   useEffect(() => {
     db.transaction(
       (tx) => {
-        tx.executeSql("CREATE TABLE IF NOT EXISTS items (item_id INTEGER PRIMARY KEY, user_id INTEGER, item VARCHAR, status TEXT)");
+        tx.executeSql("CREATE TABLE IF NOT EXISTS items (item_id INTEGER PRIMARY KEY, user_id INTEGER, item VARCHAR, status TEXT)", [], (txObj, { rows }) => {
+        }, (txObj, error) => {
+          console.log(error);
+        });
       }
     );
 
@@ -145,14 +144,14 @@ function HomeScreen() {
     } else {
       setDisabled(true);
     }
-  }, [taskItem])
+  }, [taskItem]);
 
   //switch for state
   const isFocused = useIsFocused();
   isFocused? listUpdate = !listUpdate : null;
 
   useEffect(() => {
-  }, [listUpdate])
+  }, [listUpdate]);
 
   //get list of incomplete tasks created by the user
   const getIncomplete = () => {
@@ -160,8 +159,8 @@ function HomeScreen() {
       (tx) => {
         tx.executeSql("SELECT * FROM items WHERE user_id = ? AND status = ?", [userID, "incomplete"], (txObj, { rows }) => {
           setTaskList(rows._array);
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
@@ -173,8 +172,8 @@ function HomeScreen() {
       (tx) => {
         tx.executeSql("SELECT * FROM items WHERE user_id = ? AND status = ?", [userID, "complete"], (txObj, { rows }) => {
           setCompleteList(rows._array);
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
@@ -189,12 +188,12 @@ function HomeScreen() {
           setTaskItem("");
           pendingTask++;
           tx.executeSql("UPDATE users SET utask = ? WHERE user_id = ?", [pendingTask, userID], (txObj, { rows }) => {
-          }, (txObk, error) => {
-            console.log(error)
+          }, (txObj, error) => {
+            console.log(error);
           });
           setUpdateSwitch(!updateSwitch);
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
@@ -208,12 +207,12 @@ function HomeScreen() {
           getIncomplete();
           pendingTask--;
           tx.executeSql("UPDATE users SET utask = ? WHERE user_id = ?", [pendingTask, userID], (txObj, { rows }) => {
-          }, (txObk, error) => {
-            console.log(error)
+          }, (txObj, error) => {
+            console.log(error);
           });
           setUpdateSwitch(!updateSwitch);
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
@@ -227,12 +226,12 @@ function HomeScreen() {
           getComplete();
           finishedTask--;
           tx.executeSql("UPDATE users SET ftask = ? WHERE user_id = ?", [finishedTask, userID], (txObj, { rows }) => {
-          }, (txObk, error) => {
-            console.log(error)
+          }, (txObj, error) => {
+            console.log(error);
           });
           setUpdateSwitch(!updateSwitch);
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
@@ -246,8 +245,8 @@ function HomeScreen() {
           getIncomplete();
           setTaskItem("");
           setUpdateSwitch(!updateSwitch);
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
@@ -263,16 +262,16 @@ function HomeScreen() {
           pendingTask--;
           finishedTask++;
           tx.executeSql("UPDATE users SET utask = ? WHERE user_id = ?", [pendingTask, userID], (txObj, { rows }) => {
-          }, (txObk, error) => {
-            console.log(error)
+          }, (txObj, error) => {
+            console.log(error);
           });
           tx.executeSql("UPDATE users SET ftask = ? WHERE user_id = ?", [finishedTask, userID], (txObj, { rows }) => {
-          }, (txObk, error) => {
-            console.log(error)
+          }, (txObj, error) => {
+            console.log(error);
           });
           setUpdateSwitch(!updateSwitch);
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
@@ -287,15 +286,15 @@ function HomeScreen() {
             getIncomplete();
             getComplete();
           }
-        }, (txObk, error) => {
-            console.log(error)
+        }, (txObj, error) => {
+            console.log(error);
         });
       }
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.basic}>
+    <ScrollView contentContainerStyle={styles.basic} keyboardShouldPersistTaps="handled">
       <View style={styles.textHeader}>
           <Text style={styles.smallerHeader}>Tasks</Text>
       </View>
@@ -305,15 +304,15 @@ function HomeScreen() {
           <Text style={styles.textSize}>{item.item}</Text>
           {/* remove todo item */}
           <TouchableOpacity onPress={() => {removeItem(item.item_id)}}>
-              <VectorIcons name="remove" color="#123456" size={70}/>
+              <VectorIcons name="remove" color="#2F2F2F" size={70}/>
           </TouchableOpacity>
           {/* edit todo item */}
           <TouchableOpacity onPress={() => {setEditKey(item.item_id); setEditModal(true)}}>
-              <VectorIcons name="edit" color="#123456" size={70}/>
+              <VectorIcons name="edit" color="#2F2F2F" size={70}/>
           </TouchableOpacity>
           {/* mark todo item complete */}
           <TouchableOpacity onPress={() => {completeItem(item.item_id)}}>
-              <VectorIcons name="check" color="#123456" size={70}/>
+              <VectorIcons name="check" color="#2F2F2F" size={70}/>
           </TouchableOpacity>
         </View>
       ))}
@@ -370,7 +369,7 @@ function HomeScreen() {
           <Text style={styles.textSize}>{item.item}</Text>
           {/* remove completed todo item */}
           <TouchableOpacity onPress={() => {removeComplete(item.item_id)}}>
-              <VectorIcons name="remove" color="#123456" size={70}/>
+              <VectorIcons name="remove" color="#2F2F2F" size={70}/>
           </TouchableOpacity>
         </View>
       ))}
@@ -380,6 +379,19 @@ function HomeScreen() {
 
 //user account details screen
 function AccountScreen({ navigation }) {
+  //modal pop for new username input
+  const [usernameModal, setUsernameModal] = useState(false);
+  //modal pop for new password input
+  const [passwordModal, setPasswordModal] = useState(false);
+  //store new username
+  const [newUsername, setNewUsername] = useState("");
+  //store new password
+  const [newPassword, setNewPassword] = useState("");
+  //new username submit button state
+  const [usernameDisabled, setUsernameDisabled] = useState(true);
+  //new password submit button state
+  const [passwordDisabled, setPasswordDisabled] = useState(true);
+  
   //sign out and unassign user details
   const signOut = () => {
     userID = -1;
@@ -390,16 +402,60 @@ function AccountScreen({ navigation }) {
     navigation.navigate("SignIn");
   }
 
+  //disable submit button when username input is empty
+  useEffect(() => {
+    if (newUsername != "") {
+      setUsernameDisabled(false);
+    } else {
+      setUsernameDisabled(true);
+    }
+  }, [newUsername]);
+
+
+  //disable submit button when password input is empty
+  useEffect(() => {
+    if (newPassword != "") {
+      setPasswordDisabled(false);
+    } else {
+      setPasswordDisabled(true);
+    }
+  }, [newPassword]);
+
+  //change username
+  const changeName = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("UPDATE users SET dname = ?, uname = ? WHERE user_id = ?", [newUsername, newUsername.toLowerCase(), userID], (txObj, { rows }) => {
+          signOut();
+        }, (txObj, error) => {
+          console.log(error);
+        });
+      }
+    );
+  }
+
+  //change password
+  const changePass = () => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("UPDATE users SET pword = ? WHERE user_id = ?", [(SHA256(newPassword)).toString(), userID], (txObj, { rows }) => {
+        }, (txObj, error) => {
+          console.log(error);
+        });
+      }
+    );
+  }
+
   //switch for state
   const isFocused = useIsFocused();
   isFocused? taskUpdate = !taskUpdate : null;
 
   //check for changes in stats
   useEffect(() => {
-  }, [taskUpdate])
+  }, [taskUpdate]);
 
   return (
-    <ScrollView contentContainerStyle={styles.basic}>
+    <ScrollView contentContainerStyle={styles.basic} keyboardShouldPersistTaps="handled">
       <View style={styles.textHeader}>
           <Text style={styles.smallerHeader}>Hi, {userName}</Text>
       </View>
@@ -421,6 +477,52 @@ function AccountScreen({ navigation }) {
             <Text style={styles.statText}>Pending Tasks</Text>
           </View>
         </View>
+      </View>
+        <TouchableOpacity style={styles.accountButton} onPress={() => {setUsernameModal(true)}}>
+          <View style={styles.accountItem}>
+            <Text style={styles.statText}>Change Username</Text>
+          </View>
+        </TouchableOpacity>
+      <View>
+        <Modal isVisible={usernameModal} onBackButtonPress={() => setUsernameModal(false)} onBackdropPress={() => setUsernameModal(false)}>
+          <View style={styles.changeModal}>
+            {/* take in user input */}
+            <View style={styles.changeText}>
+              <TextInput placeholder="New username" defaultValue={newUsername} onChangeText={changeUsername => setNewUsername(changeUsername)} style={styles.changeSize} maxLength={20}/>
+            </View>
+            {/* submit new username input */}
+            <View style={usernameDisabled? styles.disabledButton : styles.enabledButton}>
+              <TouchableOpacity disabled={usernameDisabled} onPress={() => {changeName(); setUsernameModal(false);}}>
+                <View style={styles.changeButton}>
+                  <Text style={styles.whiteText}>Apply</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </View>
+      <TouchableOpacity style={styles.accountButton} onPress={() => {setPasswordModal(true)}}>
+        <View style={styles.accountItem}>
+          <Text style={styles.statText}>Change Password</Text>
+        </View>
+      </TouchableOpacity>
+      <View>
+        <Modal isVisible={passwordModal} onBackButtonPress={() => setPasswordModal(false)} onBackdropPress={() => setPasswordModal(false)}>
+          <View style={styles.changeModal}>
+            {/* take in user input */}
+            <View style={styles.changeText}>
+              <TextInput placeholder="New password" defaultValue={newPassword} onChangeText={changePassword => setNewPassword(changePassword)} style={styles.changeSize} maxLength={30}/>
+            </View>
+            {/* submit new password input */}
+            <View style={passwordDisabled? styles.disabledButton : styles.enabledButton}>
+              <TouchableOpacity disabled={passwordDisabled} onPress={() => {changePass(); setPasswordModal(false);}}>
+                <View style={styles.changeButton}>
+                  <Text style={styles.whiteText}>Apply</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
       {/* sign out button */}
       <View style={styles.smallView}>
@@ -450,7 +552,7 @@ function TabNavigator() {
         component={HomeScreen}
         options={{
           tabBarLabel: "Home",
-          tabBarIcon: ({focused}) => (<VectorIcons name="list" color={focused? "#ff6347": "#808080"} size={25}/>)
+          tabBarIcon: ({focused}) => (<VectorIcons name="list" color={focused? "#141414": "#b3b3b3"} size={25}/>)
         }}
       />
       <Tab.Screen
@@ -458,15 +560,7 @@ function TabNavigator() {
         component={AccountScreen}
         options={{
           tabBarLabel: "Account",
-          tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#ff6347": "#808080"} size={28}/>)
-        }}
-      />
-      <Tab.Screen
-        name="Test"
-        component={TestScreen}
-        options={{
-          tabBarLabel: "Test",
-          tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#ff6347": "#808080"} size={28}/>)
+          tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#141414": "#b3b3b3"} size={28}/>)
         }}
       />
     </Tab.Navigator>
@@ -479,8 +573,6 @@ function SignInScreen({ navigation }) {
   const [username, setUsername] = useState("");
   //password
   const [password, setPassword] = useState("");
-  //login state
-  const [signIn, setSignIn] = useState(false);
   //sign in button state
   const [disabled, setDisabled] = useState(true);
   //check wrong username
@@ -512,10 +604,13 @@ function SignInScreen({ navigation }) {
   useEffect(() => {
     db.transaction(
       (tx) => {
-        tx.executeSql("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, dname VARCHAR, uname VARCHAR, pword VARCHAR, ftask INTEGER, utask INTEGER)");
+        tx.executeSql("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, dname VARCHAR, uname VARCHAR, pword VARCHAR, ftask INTEGER, utask INTEGER)", [], (txObj, { rows }) => {
+        }, (txObj, error) => {
+          console.log(error);
+        });
       }
     );
-  }, [])
+  }, []);
 
   //disable submit button when input is empty
   useEffect(() => {
@@ -524,17 +619,17 @@ function SignInScreen({ navigation }) {
     } else {
       setDisabled(true);
     }
-  }, [username, password])
+  }, [username, password]);
 
   //reset warning text
   useEffect(() => {
     setWrongName(false);
-  }, [username])
+  }, [username]);
 
   //reset warning text
   useEffect(() => {
     setWrongPass(false);
-  }, [password])
+  }, [password]);
 
   //authenticate user
   const checkUser = () => {
@@ -570,7 +665,7 @@ function SignInScreen({ navigation }) {
             //no username found
             setWrongName(true);
           }
-        }, (txObk, error) => {
+        }, (txObj, error) => {
           console.log(error)
         });
       }
@@ -578,14 +673,14 @@ function SignInScreen({ navigation }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.basic}>
+    <ScrollView contentContainerStyle={styles.basic} keyboardShouldPersistTaps="handled">
       <View style={styles.maxWidth}>
         <View style={styles.textHeader}>
           <Text style={styles.headerFont}>Log into existing account.</Text>
         </View>
         {/* login inputs */}
         <View style={styles.loginInput}>
-          <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={15}/>
+          <TextInput placeholder="Username" defaultValue={username} onChangeText={username => setUsername(username)} style={styles.inputSize} maxLength={20}/>
         </View>
         {/* no account found warning text */}
         {wrongName? <View style={styles.errorText}><Text style={styles.errorFont}>There is no account with that username.</Text></View> : null}
@@ -597,7 +692,7 @@ function SignInScreen({ navigation }) {
         {/* submit button to authenticate login info */}
         <View style={styles.loginButton}>
           <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {checkUser()}}>
-              <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
+              <VectorIcons name="arrow-circle-right" color="#2F2F2F" size={70}/>
           </TouchableOpacity>
         </View>
         {/* sign up screen */}
@@ -651,17 +746,17 @@ function SignUpScreen({ navigation }) {
     } else {
       setDisabled(true);
     }
-  }, [username, password, passwordC])
+  }, [username, password, passwordC]);
 
   //reset warning text
   useEffect(() => {
     setNameTaken(false);
-  }, [username])
+  }, [username]);
 
   //reset warning text
   useEffect(() => {
     setMismatch(false);
-  }, [password, passwordC])
+  }, [password, passwordC]);
 
   //register user
   const addUser = () => {
@@ -691,11 +786,11 @@ function SignUpScreen({ navigation }) {
                 setPassword("");
                 setPasswordC("");
                 navigation.navigate("TabNavigator");
-              }, (txObk, error) => {
-                console.log(error)
+              }, (txObj, error) => {
+                console.log(error);
               });
-            }, (txObk, error) => {
-              console.log(error)
+            }, (txObj, error) => {
+              console.log(error);
             });
           } else {
             if (rows.length > 0) {
@@ -707,15 +802,15 @@ function SignUpScreen({ navigation }) {
               setMismatch(true);
             }
           }
-        }, (txObk, error) => {
-          console.log(error)
+        }, (txObj, error) => {
+          console.log(error);
         });
       }
     );
-  };
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.basic}>
+    <ScrollView contentContainerStyle={styles.basic} keyboardShouldPersistTaps="handled">
       <View style={styles.maxWidth}>
         <View style={styles.textHeader}>
           <Text style={styles.headerFont}>Create new account.</Text>
@@ -738,7 +833,7 @@ function SignUpScreen({ navigation }) {
         {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
         <View style={styles.loginButton}>
           <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addUser()}}>
-              <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
+              <VectorIcons name="arrow-circle-right" color="#2F2F2F" size={70}/>
           </TouchableOpacity>
         </View>
         {/* login screen */}
@@ -752,8 +847,6 @@ function SignUpScreen({ navigation }) {
     </ScrollView>
   );
 }
-
-function TestScreen() {}
 
 //main function
 function App() {
@@ -803,13 +896,13 @@ const styles = StyleSheet.create({
 
   inlineEvenly: {
     flexDirection: "row",
-    justifyContent: "space-evenly",
-    width: "100%",
-    flexGrow: 1
+    justifyContent: "space-between",
+    width: "90%",
+    margin: 5
   },
 
   lineText: {
-    backgroundColor: "#f8f8f8",
+    backgroundColor: "#f2f2f2",
     borderRadius: 10,
     width: "83%"
   },
@@ -840,7 +933,7 @@ const styles = StyleSheet.create({
 
   maxWidth: {
     width: "100%",
-    color: "#f8f8f8",
+    color: "#f2f2f2",
     alignItems: "center",
     flexGrow: 1
   },
@@ -891,8 +984,8 @@ const styles = StyleSheet.create({
   },
 
   logoutLink: {
-    fontSize: 14,
-    color: "#ba2727"
+    fontSize: 16,
+    color: "#d41717"
   },
 
   smallerHeader: {
@@ -900,18 +993,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold"
   },
 
-  itemCenter: {
-    padding: 20,
-    margin: 5,
-    width: "90%",
-    borderRadius: 10,
-    backgroundColor: "#c2d9f0",
-    alignItems: "center"
-  },
-
   statBox: {
-    width: "45%",
-    height: "30%",
+    width: "48%",
     backgroundColor: "#ffffff",
     borderRadius: 10
   },
@@ -920,6 +1003,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flex: 1,
+    padding: 20
   },
 
   textBox: {
@@ -945,5 +1029,50 @@ const styles = StyleSheet.create({
   errorFont: {
     fontSize: 14,
     color: "#ba2727"
+  },
+
+  accountButton: {
+    width: "90%",
+    alignItems: "center",
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    padding: 15,
+    margin: 5
+  },
+
+  accountItem: {
+    width: "100%",
+    alignItems: "center"
+  },
+
+  changeSize: {
+    fontSize: 18,
+    padding: 15
+  },
+
+  changeModal: {
+    backgroundColor: "#ffffff",
+    padding: 20,
+    borderRadius: 20
+  },
+
+  changeText: {
+    backgroundColor: "#f2f2f2",
+    borderRadius: 10,
+    width: "100%"
+  },
+
+  changeButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: "#2F2F2F",
+    borderRadius: 5,
+  },
+
+  whiteText: {
+    color: "#ffffff",
+    fontSize: 16
   }
 });
