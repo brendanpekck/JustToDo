@@ -7,6 +7,8 @@ import VectorIcons from "react-native-vector-icons/FontAwesome";
 import Modal from "react-native-modal";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { SHA256 } from "crypto-es/lib/sha256";
+import * as SQLite from "expo-sqlite";
 
 //stack navigation
 const Stack = createNativeStackNavigator();
@@ -24,6 +26,8 @@ let finishedTask = 0;
 let pendingTask = 0;
 //tasks count update switch
 let taskUpdate = false;
+
+//const db = SQLite.openDatabase("ToDo");
 
 //home screen/list of todo items
 function HomeScreen() {
@@ -216,7 +220,6 @@ function AccountScreen({ navigation }) {
   isFocused? taskUpdate = !taskUpdate : null;
 
   useEffect(() => {
-    console.log("meow");
   }, [taskUpdate])
 
   return (
@@ -279,6 +282,14 @@ function TabNavigator() {
           tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#ff6347": "#808080"} size={28}/>)
         }}
       />
+      <Tab.Screen
+        name="Test"
+        component={TestScreen}
+        options={{
+          tabBarLabel: "Test",
+          tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#ff6347": "#808080"} size={28}/>)
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -296,7 +307,6 @@ function SignInScreen({ navigation }) {
   const getInfo = async (key) => {
     try {
       let test = await SecureStore.getItemAsync(key);
-      console.log(test);
     } catch (e) {
       setSignIn(false);
     }
@@ -355,6 +365,23 @@ function SignInScreen({ navigation }) {
   );
 }
 
+function openDatabase() {
+  if (Platform.OS === "web") {
+    return {
+      transaction: () => {
+        return {
+          executeSql: () => {},
+        };
+      },
+    };
+  }
+
+  const db = SQLite.openDatabase("db.db");
+  return db;
+}
+
+const db = openDatabase();
+
 function SignUpScreen({ navigation }) {
   //username
   const [username, setUsername] = useState("");
@@ -365,6 +392,7 @@ function SignUpScreen({ navigation }) {
   //sign up button state
   const [disabled, setDisabled] = useState(true);
 
+  /*
   const storeInfo = async (key, value) => {
     try {
       if (password == passwordC) {
@@ -374,18 +402,40 @@ function SignUpScreen({ navigation }) {
       } else {
         Alert.alert("test", "test", [{test: "ok"}]);
       }
-    } catch (e) {''
+    } catch (e) {
       console.log(key);
     }
   }
+  */
 
   useEffect(() => {
+    db.transaction((tx) => {
+      tx.executeSql(
+        "create table if not exists users (id integer primary key autoincrement, uname varchar(30), pword varchar);"
+      );
+    });
+
     if (username != "" && password != "" && passwordC != "") {
       setDisabled(false);
     } else {
       setDisabled(true);
     }
   }, [username, password, passwordC])
+
+  
+
+  const addUser = (name, pass) => {
+    const encryptPass = (SHA256(pass)).toString();
+    db.transaction(
+      (tx) => {
+        tx.executeSql("insert into users (uname, pword) values (?, ?)", [name, encryptPass]);
+        tx.executeSql("select * from users", [], (txObj, { rows }) =>
+          console.log(rows.length),
+          //rows.item(0).uname
+          signedIn = true
+        );
+      });
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.basic}>
@@ -403,7 +453,7 @@ function SignUpScreen({ navigation }) {
           <TextInput placeholder="Confirm Password" defaultValue={passwordC} onChangeText={password => setPasswordC(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
         </View>
         <View style={styles.loginButton}>
-          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {storeInfo(username, password)}}>
+          <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addUser(username, password)}}>
               <VectorIcons name="arrow-circle-right" color="#123456" size={70}/>
           </TouchableOpacity>
         </View>
@@ -418,16 +468,7 @@ function SignUpScreen({ navigation }) {
   );
 }
 
-function App() {
-  return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="TabNavigator" screenOptions={{headerShown: false}}>
-          <Stack.Screen name="SignIn" component={SignInScreen} />
-          <Stack.Screen name="SignUp" component={SignUpScreen} />
-          <Stack.Screen name="TabNavigator" component={TabNavigator} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
+function TestScreen() {
 }
 
 export default App;
