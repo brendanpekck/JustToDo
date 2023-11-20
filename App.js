@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from "react";
 import { StyleSheet, Text, View, ScrollView, StatusBar, TouchableOpacity, TextInput, BackHandler } from "react-native";
+import { useFonts } from '@expo-google-fonts/inter';
 import { NavigationContainer, useIsFocused } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -24,6 +25,8 @@ let userID = 0;
 let userName = "";
 //sign in "token"
 let signedIn = false;
+//sign in check switch
+let checkAuth = false;
 //track finished task
 let finishedTask = 0;
 //track pending task
@@ -295,25 +298,36 @@ function HomeScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.basic} keyboardShouldPersistTaps="handled">
-      <View style={styles.textHeader}>
-          <Text style={styles.smallerHeader}>Tasks</Text>
+      <View style={styles.mainHeader}>
+        <View style={styles.taskHeader}>
+            <Text style={styles.smallerHeader}>Tasks</Text>
+        </View>
+        {/* button for user input pop up */}
+        <View style={styles.headerButton}>
+          <TouchableOpacity style={styles.taskButton} onPress={() => setAddModal(true)}>
+              <VectorIcons name="plus-circle" color="#2F2F2F" size={35}/>
+          </TouchableOpacity>
+        </View>
       </View>
       {/* render out all todo items */}
       {taskList.map((item) => (
         <View key={item.item_id} style={styles.listItem}>
           <Text style={styles.textSize}>{item.item}</Text>
           {/* remove todo item */}
-          <TouchableOpacity onPress={() => {removeItem(item.item_id)}}>
-              <VectorIcons name="remove" color="#2F2F2F" size={70}/>
-          </TouchableOpacity>
-          {/* edit todo item */}
-          <TouchableOpacity onPress={() => {setEditKey(item.item_id); setEditModal(true)}}>
-              <VectorIcons name="edit" color="#2F2F2F" size={70}/>
-          </TouchableOpacity>
-          {/* mark todo item complete */}
-          <TouchableOpacity onPress={() => {completeItem(item.item_id)}}>
-              <VectorIcons name="check" color="#2F2F2F" size={70}/>
-          </TouchableOpacity>
+          <View style={styles.inlineTask}>
+            {/* edit todo item */}
+            <TouchableOpacity style={styles.inlineButton} onPress={() => {setEditKey(item.item_id); setEditModal(true)}}>
+                <VectorIcons name="edit" color="#2F2F2F" size={30}/>
+            </TouchableOpacity>
+            {/* mark todo item complete */}
+            <TouchableOpacity style={styles.inlineButton} onPress={() => {completeItem(item.item_id)}}>
+                <VectorIcons name="check" color="#2F2F2F" size={34}/>
+            </TouchableOpacity>
+            {/* delete todo item */}
+            <TouchableOpacity style={styles.inlineButton} onPress={() => {removeItem(item.item_id)}}>
+                <VectorIcons name="remove" color="#2F2F2F" size={35}/>
+            </TouchableOpacity>
+          </View>
         </View>
       ))}
       {/* pop up for user input to add to list of todo items */}
@@ -356,21 +370,17 @@ function HomeScreen() {
           </View>
         </Modal>
       </View>
-      {/* button for user input pop up */}
-      <View>
-        <TouchableOpacity style={styles.taskButton} onPress={() => setAddModal(true)}>
-            <VectorIcons name="plus-circle" color="#2F2F2F" size={70}/>
-        </TouchableOpacity>
-      </View>
       {/* render out all completed todo items */}
       {completeList.length > 0 ? <View style={styles.textHeader}><Text style={styles.smallerHeader}>Completed Tasks</Text></View> : null }
       {completeList.map((item) => (
         <View key={item.item_id} style={styles.listItem}>
           <Text style={styles.textSize}>{item.item}</Text>
-          {/* remove completed todo item */}
-          <TouchableOpacity onPress={() => {removeComplete(item.item_id)}}>
-              <VectorIcons name="remove" color="#2F2F2F" size={70}/>
-          </TouchableOpacity>
+          <View style={styles.inlineTask}>
+            {/* remove completed todo item */}
+            <TouchableOpacity style={styles.inlineButton} onPress={() => {removeComplete(item.item_id)}}>
+                <VectorIcons name="remove" color="#2F2F2F" size={35}/>
+            </TouchableOpacity>
+          </View>
         </View>
       ))}
     </ScrollView>
@@ -488,7 +498,7 @@ function AccountScreen({ navigation }) {
           <View style={styles.changeModal}>
             {/* take in user input */}
             <View style={styles.changeText}>
-              <TextInput placeholder="New username" defaultValue={newUsername} onChangeText={changeUsername => setNewUsername(changeUsername)} style={styles.changeSize} maxLength={20}/>
+              <TextInput placeholder="New username" defaultValue={newUsername} onChangeText={changeUsername => setNewUsername(changeUsername)} style={styles.inputSize} maxLength={20}/>
             </View>
             {/* submit new username input */}
             <View style={usernameDisabled? styles.disabledButton : styles.enabledButton}>
@@ -511,7 +521,7 @@ function AccountScreen({ navigation }) {
           <View style={styles.changeModal}>
             {/* take in user input */}
             <View style={styles.changeText}>
-              <TextInput placeholder="New password" defaultValue={newPassword} onChangeText={changePassword => setNewPassword(changePassword)} style={styles.changeSize} maxLength={30}/>
+              <TextInput placeholder="New password" defaultValue={newPassword} onChangeText={changePassword => setNewPassword(changePassword)} style={styles.inputSize} maxLength={40}/>
             </View>
             {/* submit new password input */}
             <View style={passwordDisabled? styles.disabledButton : styles.enabledButton}>
@@ -567,6 +577,17 @@ function TabNavigator() {
   );
 }
 
+function BufferScreen({ navigation }) {
+  const isFocused = useIsFocused();
+  isFocused? checkAuth = !checkAuth : null;
+
+  useEffect(() => {
+    if (signedIn) {
+      navigation.navigate("TabNavigator");
+    }
+  }, [checkAuth]);
+}
+
 //sign in screen
 function SignInScreen({ navigation }) {
   //username
@@ -598,6 +619,15 @@ function SignInScreen({ navigation }) {
     }
   }
   */
+
+  const isFocused = useIsFocused();
+  isFocused? checkAuth = !checkAuth : null;
+
+  useEffect(() => {
+    if (signedIn) {
+      navigation.navigate("BufferScreen");
+    }
+  }, [checkAuth]);
 
   //create users table
   //stores login info and user stats
@@ -656,7 +686,7 @@ function SignInScreen({ navigation }) {
               //reset login inputs
               setUsername("");
               setPassword("");
-              navigation.navigate("TabNavigator");
+              navigation.navigate("BufferScreen");
             } else {
               //wrong password
               setWrongPass(true);
@@ -685,7 +715,7 @@ function SignInScreen({ navigation }) {
         {/* no account found warning text */}
         {wrongName? <View style={styles.errorText}><Text style={styles.errorFont}>There is no account with that username.</Text></View> : null}
         <View style={styles.loginInput}>
-          <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
+          <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={40}/>
         </View>
         {/* wrong password warning text */}
         {wrongPass? <View style={styles.errorText}><Text style={styles.errorFont}>Incorrect password.</Text></View> : null}
@@ -739,6 +769,28 @@ function SignUpScreen({ navigation }) {
   }
   */
 
+  const isFocused = useIsFocused();
+  isFocused? checkAuth = !checkAuth : null;
+
+  useEffect(() => {
+    if (signedIn) {
+      navigation.navigate("BufferScreen");
+    }
+  }, [checkAuth]);
+
+  //create users table
+  //stores login info and user stats
+  useEffect(() => {
+    db.transaction(
+      (tx) => {
+        tx.executeSql("CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, dname VARCHAR, uname VARCHAR, pword VARCHAR, ftask INTEGER, utask INTEGER)", [], (txObj, { rows }) => {
+        }, (txObj, error) => {
+          console.log(error);
+        });
+      }
+    );
+  }, []);
+
   //disable submit button when input is empty
   useEffect(() => {
     if (username != "" && password != "" && passwordC != "") {
@@ -785,7 +837,7 @@ function SignUpScreen({ navigation }) {
                 setUsername("");
                 setPassword("");
                 setPasswordC("");
-                navigation.navigate("TabNavigator");
+                navigation.navigate("BufferScreen");
               }, (txObj, error) => {
                 console.log(error);
               });
@@ -822,12 +874,12 @@ function SignUpScreen({ navigation }) {
         {/* duplicate username warning text */}
         {nameTaken? <View style={styles.errorText}><Text style={styles.errorFont}>A user with that username already exists.</Text></View> : null}
         <View style={styles.loginInput}>
-          <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
+          <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={40}/>
         </View>
         {/* mismatched password warning text */}
         {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
         <View style={styles.loginInput}>
-          <TextInput placeholder="Confirm Password" defaultValue={passwordC} onChangeText={password => setPasswordC(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={30}/>
+          <TextInput placeholder="Confirm Password" defaultValue={passwordC} onChangeText={password => setPasswordC(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={40}/>
         </View>
         {/* mismatched password warning text */}
         {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
@@ -855,6 +907,7 @@ function App() {
       <Stack.Navigator initialRouteName="SignIn" screenOptions={{headerShown: false}}>
           <Stack.Screen name="SignIn" component={SignInScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="BufferScreen" component={BufferScreen} />
           <Stack.Screen name="TabNavigator" component={TabNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
@@ -871,6 +924,40 @@ const styles = StyleSheet.create({
     flexGrow: 1
   },
 
+  mainHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%"
+  },
+
+  textHeader: {
+    width: "100%",
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingLeft: 20,
+    paddingRight: 20,
+  },
+
+  smallerHeader: {
+    fontSize: 30,
+    fontWeight: "bold",
+  },
+
+  taskHeader: {
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingLeft: 20,
+    paddingRight: 20,
+  },
+
+  headerButton: {
+    justifyContent: "center",
+    paddingRight: 15
+  },
+
+  taskButton: {
+  },
+
   enabledButton: {
     opacity: 1
   },
@@ -879,19 +966,18 @@ const styles = StyleSheet.create({
     opacity: 0.5
   },
 
-  taskButton: {
-    marginTop: 5,
-  },
-
   generalModal: {
     backgroundColor: "#ffffff",
-    padding: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    paddingLeft: 20,
     borderRadius: 20
   },
 
   inlineTogether: {
     flexDirection: "row",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    alignItems: "center"
   },
 
   inlineEvenly: {
@@ -901,17 +987,26 @@ const styles = StyleSheet.create({
     margin: 5
   },
 
+  inlineTask: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "flex-end"
+  },
+
+  inlineButton: {
+    paddingLeft: 10,
+    paddingRight: 10
+  },
+
   lineText: {
     backgroundColor: "#f2f2f2",
     borderRadius: 10,
-    width: "83%"
+    width: "80%"
   },
 
   lineButton: {
-    flex: 1,
-    width: "17%",
-    alignItems: "flex-end",
-    justifyContent: "center"
+    width: "20%",
+    alignItems: "center"
   },
 
   inputSize: {
@@ -920,7 +1015,8 @@ const styles = StyleSheet.create({
   },
 
   textSize: {
-    fontSize: 20
+    fontSize: 20,
+    padding: 10
   },
 
   listItem: {
@@ -928,7 +1024,7 @@ const styles = StyleSheet.create({
     margin: 5,
     width: "90%",
     borderRadius: 10,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#ffffff"
   },
 
   maxWidth: {
@@ -952,14 +1048,6 @@ const styles = StyleSheet.create({
     padding: 15
   },
 
-  textHeader: {
-    width: "100%",
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingLeft: 20,
-    paddingRight: 20
-  },
-
   headerFont: {
     fontSize: 40,
     fontWeight: "bold"
@@ -975,22 +1063,17 @@ const styles = StyleSheet.create({
   },
 
   smallText: {
-    fontSize: 14
+    fontSize: 16
   },
 
   smallLink: {
-    fontSize: 14,
-    color: "#2771ba"
+    fontSize: 16,
+    color: "#328fed"
   },
 
   logoutLink: {
     fontSize: 16,
-    color: "#d41717"
-  },
-
-  smallerHeader: {
-    fontSize: 30,
-    fontWeight: "bold"
+    color: "#e61717"
   },
 
   statBox: {
@@ -1045,11 +1128,6 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
 
-  changeSize: {
-    fontSize: 18,
-    padding: 15
-  },
-
   changeModal: {
     backgroundColor: "#ffffff",
     padding: 20,
@@ -1068,7 +1146,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     padding: 15,
     backgroundColor: "#2F2F2F",
-    borderRadius: 5,
+    borderRadius: 5
   },
 
   whiteText: {
