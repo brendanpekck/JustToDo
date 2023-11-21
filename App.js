@@ -41,6 +41,11 @@ function openDatabase() {
 }
 const db = openDatabase();
 
+//check inputs for white space
+function hasWhiteSpace(input) {
+  return input.indexOf(" ") >= 0;
+}
+
 //home screen/list of todo items
 function HomeScreen() {
   //add todo item pop up
@@ -333,7 +338,7 @@ function HomeScreen() {
       ))}
       {/* pop up for user input to add to list of todo items */}
       <View>
-        <Modal isVisible={addModal} onBackButtonPress={() => setAddModal(false)} onBackdropPress={() => setAddModal(false)}>
+        <Modal isVisible={addModal} onBackButtonPress={() => {setAddModal(false); setTaskItem("")}} onBackdropPress={() => {setAddModal(false); setTaskItem("")}}>
           <View style={styles.generalModal}>
             {/* arrange input box and submit button next to each other */}
             <View style={styles.inlineTogether}>
@@ -353,7 +358,7 @@ function HomeScreen() {
       </View>
       {/* pop up for user input to edit list of todo items */}
       <View>
-        <Modal isVisible={editModal} onBackButtonPress={() => setEditModal(false)} onBackdropPress={() => setEditModal(false)}>
+        <Modal isVisible={editModal} onBackButtonPress={() => {setEditModal(false); setTaskItem("")}} onBackdropPress={() => {setEditModal(false); setTaskItem("")}}>
           <View style={styles.generalModal}>
             {/* arrange input box and submit button next to each other */}
             <View style={styles.inlineTogether}>
@@ -512,7 +517,7 @@ function AccountScreen({ navigation }) {
       </TouchableOpacity>
       {/* pop up for new username input */}
       <View>
-        <Modal isVisible={usernameModal} onBackButtonPress={() => setUsernameModal(false)} onBackdropPress={() => setUsernameModal(false)}>
+        <Modal isVisible={usernameModal} onBackButtonPress={() => {setUsernameModal(false); setNewUsername("")}} onBackdropPress={() => {setUsernameModal(false); setNewUsername("")}}>
           <View style={styles.changeModal}>
             {/* take in user input */}
             <View style={styles.changeText}>
@@ -536,7 +541,7 @@ function AccountScreen({ navigation }) {
         </View>
       </TouchableOpacity>
       <View>
-        <Modal isVisible={passwordModal} onBackButtonPress={() => setPasswordModal(false)} onBackdropPress={() => setPasswordModal(false)}>
+        <Modal isVisible={passwordModal} onBackButtonPress={() => {setPasswordModal(false); setNewPassword("")}} onBackdropPress={() => {setPasswordModal(false); setNewPassword("")}}>
           <View style={styles.changeModal}>
             {/* take in user input */}
             <View style={styles.changeText}>
@@ -750,6 +755,12 @@ function SignUpScreen({ navigation }) {
   const [nameTaken, setNameTaken] = useState(false);
   //check password match
   const [mismatch, setMismatch] = useState(false);
+  //check password length
+  const [shortPass, setShortPass] = useState(false);
+  //check for whitespace in username
+  const [usernameSpace, setUsernameSpace] = useState(false);
+  //check for whitespace in password
+  const [passwordSpace, setPasswordSpace] = useState(false);
 
   //local storage
   /*
@@ -793,11 +804,14 @@ function SignUpScreen({ navigation }) {
   //reset warning text
   useEffect(() => {
     setNameTaken(false);
+    setUsernameSpace(false);
   }, [username]);
 
   //reset warning text
   useEffect(() => {
     setMismatch(false);
+    setShortPass(false);
+    setPasswordSpace(false);
   }, [password, passwordC]);
 
   //register user
@@ -806,9 +820,12 @@ function SignUpScreen({ navigation }) {
       (tx) => {
         //check for duplicates
         tx.executeSql("SELECT * FROM users WHERE uname = ?", [username.toLowerCase()], (txObj, { rows }) => {
-          if (rows.length == 0 && password == passwordC) {
+          if (rows.length == 0 && password == passwordC && password.length >= 10 && passwordC.length >= 10) {
             setNameTaken(false);
             setMismatch(false);
+            setShortPass(false);
+            setUsernameSpace(false);
+            setPasswordSpace(false);
             //encrypted password for storage
             const encryptPass = (SHA256(password)).toString();
             //add user info to database
@@ -843,6 +860,15 @@ function SignUpScreen({ navigation }) {
               //password mismatch
               setMismatch(true);
             }
+            if (password.length < 10 || passwordC.length < 10) {
+              setShortPass(true);
+            }
+            if (username.indexOf(" ") >= 0) {
+              setUsernameSpace(true);
+            }
+            if (password.indexOf(" ") >= 0 || passwordC.indexOf(" ") >= 0) {
+              setPasswordSpace(true);
+            }
           }
         }, (txObj, error) => {
           console.log(error);
@@ -863,16 +889,20 @@ function SignUpScreen({ navigation }) {
         </View>
         {/* duplicate username warning text */}
         {nameTaken? <View style={styles.errorText}><Text style={styles.errorFont}>A user with that username already exists.</Text></View> : null}
+        {/* username contains space warning text */}
+        {usernameSpace? <View style={styles.errorText}><Text style={styles.errorFont}>Username cannot contain white spaces.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Password" defaultValue={password} onChangeText={password => setPassword(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={40}/>
         </View>
-        {/* mismatched password warning text */}
-        {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
         <View style={styles.loginInput}>
           <TextInput placeholder="Confirm Password" defaultValue={passwordC} onChangeText={password => setPasswordC(password)} style={styles.inputSize} secureTextEntry={true} selectTextOnFocus={true} maxLength={40}/>
         </View>
         {/* mismatched password warning text */}
         {mismatch? <View style={styles.errorText}><Text style={styles.errorFont}>Password does not match.</Text></View> : null}
+        {/* short password warning text */}
+        {shortPass? <View style={styles.errorText}><Text style={styles.errorFont}>Password needs at least 10 characters.</Text></View> : null}
+        {/* password contains space warning text */}
+        {passwordSpace? <View style={styles.errorText}><Text style={styles.errorFont}>Password cannot contain white spaces.</Text></View> : null}
         <View style={styles.loginButton}>
           <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addUser()}}>
               <VectorIcons name="arrow-circle-right" color="#2F2F2F" size={70}/>
