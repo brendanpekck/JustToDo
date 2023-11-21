@@ -533,7 +533,7 @@ function AccountScreen({ navigation }) {
           <View style={styles.changeModal}>
             {/* take in user input */}
             <View style={styles.changeText}>
-              <TextInput placeholder="New password" defaultValue={newPassword} onChangeText={changePassword => setNewPassword(changePassword)} style={styles.inputSize} maxLength={40}/>
+              <TextInput placeholder="New password" defaultValue={newPassword} onChangeText={changePassword => setNewPassword(changePassword)} style={styles.inputSize} maxLength={40} secureTextEntry={true}/>
             </View>
             {/* submit new password input */}
             <View style={passwordDisabled? styles.disabledButton : styles.enabledButton}>
