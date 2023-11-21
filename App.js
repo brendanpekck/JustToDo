@@ -7,6 +7,7 @@ import VectorIcons from "react-native-vector-icons/FontAwesome";
 import Modal from "react-native-modal";;
 import { SHA256 } from "crypto-es/lib/sha256";
 import * as SQLite from "expo-sqlite";
+import { setStatusBarStyle } from "expo-status-bar";
 
 //local storage imports
 /*
@@ -24,8 +25,6 @@ let userID = 0;
 let userName = "";
 //sign in "token"
 let signedIn = false;
-//sign in check switch
-let checkAuth = false;
 //track finished task
 let finishedTask = 0;
 //track pending task
@@ -137,6 +136,9 @@ function HomeScreen() {
 
     //check for persistent list
     checkList();
+
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => backHandler.remove();
   }, [])
 
   //disable submit button when input is empty
@@ -410,7 +412,7 @@ function AccountScreen({ navigation }) {
     finishedTask = 0;
     pendingTask = 0;
     signedIn = false;
-    navigation.navigate("SignIn");
+    navigation.replace("SignIn");
   }
 
   //disable submit button when username input is empty
@@ -473,6 +475,11 @@ function AccountScreen({ navigation }) {
   //check for changes in stats
   useEffect(() => {
   }, [taskUpdate]);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => backHandler.remove();
+  }, [])
 
   return (
     <ScrollView contentContainerStyle={styles.basic} keyboardShouldPersistTaps="handled">
@@ -621,15 +628,6 @@ function SignInScreen({ navigation }) {
   }
   */
 
-  const isFocused = useIsFocused();
-  isFocused? checkAuth = !checkAuth : null;
-
-  useEffect(() => {
-    if (signedIn) {
-      navigation.navigate("TabNavigator");
-    }
-  }, [checkAuth]);
-
   //create users table
   //stores login info and user stats
   useEffect(() => {
@@ -687,7 +685,7 @@ function SignInScreen({ navigation }) {
               //reset login inputs
               setUsername("");
               setPassword("");
-              navigation.navigate("TabNavigator");
+              navigation.replace("TabNavigator");
             } else {
               //wrong password
               setWrongPass(true);
@@ -729,7 +727,7 @@ function SignInScreen({ navigation }) {
         {/* sign up screen */}
         <View style={styles.smallView}>
           <Text style={styles.smallText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => {navigation.navigate("SignUp")}}>
+          <TouchableOpacity onPress={() => {navigation.replace("SignUp")}}>
             <Text style={styles.smallLink}>Sign up</Text>
           </TouchableOpacity>
         </View>
@@ -769,15 +767,6 @@ function SignUpScreen({ navigation }) {
     }
   }
   */
-
-  const isFocused = useIsFocused();
-  isFocused? checkAuth = !checkAuth : null;
-
-  useEffect(() => {
-    if (signedIn) {
-      navigation.navigate("TabNavigator");
-    }
-  }, [checkAuth]);
 
   //create users table
   //stores login info and user stats
@@ -838,7 +827,7 @@ function SignUpScreen({ navigation }) {
                 setUsername("");
                 setPassword("");
                 setPasswordC("");
-                navigation.navigate("TabNavigator");
+                navigation.replace("TabNavigator");
               }, (txObj, error) => {
                 console.log(error);
               });
@@ -892,7 +881,7 @@ function SignUpScreen({ navigation }) {
         {/* login screen */}
         <View style={styles.smallView}>
           <Text style={styles.smallText}>Have an account? </Text>
-          <TouchableOpacity onPress={() => {navigation.navigate("SignIn")}}>
+          <TouchableOpacity onPress={() => {navigation.replace("SignIn")}}>
             <Text style={styles.smallLink}>Log in</Text>
           </TouchableOpacity>
         </View>
@@ -919,7 +908,6 @@ export default App;
 //styles
 const styles = StyleSheet.create({
   basic: {
-    paddingTop: StatusBar.currentHeight,
     alignItems: "center",
     flexGrow: 1
   },
