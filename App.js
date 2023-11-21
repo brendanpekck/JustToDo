@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from "react";
 import { StyleSheet, Text, View, ScrollView, StatusBar, TouchableOpacity, TextInput, BackHandler } from "react-native";
-import { useFonts } from '@expo-google-fonts/inter';
 import { NavigationContainer, useIsFocused } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -38,7 +37,7 @@ let listUpdate = false;
 
 //database
 function openDatabase() {
-  const db = SQLite.openDatabase("leafy.db");
+  const db = SQLite.openDatabase("newstyle.db");
   return db;
 }
 const db = openDatabase();
@@ -342,7 +341,7 @@ function HomeScreen() {
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
-                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addItem(); setAddModal(false);}}>
+                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {addItem(); setAddModal(false)}}>
                   <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
                 </TouchableOpacity>
               </View>
@@ -362,7 +361,7 @@ function HomeScreen() {
               </View>
               {/* submit user input */}
               <View style={styles.lineButton}>
-                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {editItem(taskItem, editKey); setEditModal(false);}}>
+                <TouchableOpacity disabled={disabled} style={disabled? styles.disabledButton : styles.enabledButton} onPress={() => {editItem(taskItem, editKey); setEditModal(false)}}>
                     <VectorIcons name="arrow-circle-up" color="#2F2F2F" size={40}/>
                 </TouchableOpacity>
               </View>
@@ -401,6 +400,8 @@ function AccountScreen({ navigation }) {
   const [usernameDisabled, setUsernameDisabled] = useState(true);
   //new password submit button state
   const [passwordDisabled, setPasswordDisabled] = useState(true);
+  //duplicate name
+  const [duplicateName, setDuplicateName] = useState(false);
   
   //sign out and unassign user details
   const signOut = () => {
@@ -435,8 +436,17 @@ function AccountScreen({ navigation }) {
   const changeName = () => {
     db.transaction(
       (tx) => {
-        tx.executeSql("UPDATE users SET dname = ?, uname = ? WHERE user_id = ?", [newUsername, newUsername.toLowerCase(), userID], (txObj, { rows }) => {
-          signOut();
+        tx.executeSql("SELECT * FROM users WHERE uname = ?", [newUsername.toLowerCase()], (txObj, { rows }) => {
+          if (rows.length > 0) {
+            setDuplicateName(true);
+          } else {
+            tx.executeSql("UPDATE users SET dname = ?, uname = ? WHERE user_id = ?", [newUsername, newUsername.toLowerCase(), userID], (txObj, { rows }) => {
+              setUsernameModal(false);
+              signOut();
+            }, (txObj, error) => {
+              console.log(error);
+            });
+          }
         }, (txObj, error) => {
           console.log(error);
         });
@@ -488,11 +498,12 @@ function AccountScreen({ navigation }) {
           </View>
         </View>
       </View>
-        <TouchableOpacity style={styles.accountButton} onPress={() => {setUsernameModal(true)}}>
-          <View style={styles.accountItem}>
-            <Text style={styles.statText}>Change Username</Text>
-          </View>
-        </TouchableOpacity>
+      <TouchableOpacity style={styles.accountButton} onPress={() => {setUsernameModal(true)}}>
+        <View style={styles.accountItem}>
+          <Text style={styles.statText}>Change Username</Text>
+        </View>
+      </TouchableOpacity>
+      {/* pop up for new username input */}
       <View>
         <Modal isVisible={usernameModal} onBackButtonPress={() => setUsernameModal(false)} onBackdropPress={() => setUsernameModal(false)}>
           <View style={styles.changeModal}>
@@ -500,9 +511,10 @@ function AccountScreen({ navigation }) {
             <View style={styles.changeText}>
               <TextInput placeholder="New username" defaultValue={newUsername} onChangeText={changeUsername => setNewUsername(changeUsername)} style={styles.inputSize} maxLength={20}/>
             </View>
+            {duplicateName? <View style={styles.errorText}><Text style={styles.errorFont}>A user with that username already exists.</Text></View> : null}
             {/* submit new username input */}
             <View style={usernameDisabled? styles.disabledButton : styles.enabledButton}>
-              <TouchableOpacity disabled={usernameDisabled} onPress={() => {changeName(); setUsernameModal(false);}}>
+              <TouchableOpacity disabled={usernameDisabled} onPress={() => {changeName()}}>
                 <View style={styles.changeButton}>
                   <Text style={styles.whiteText}>Apply</Text>
                 </View>
@@ -525,7 +537,7 @@ function AccountScreen({ navigation }) {
             </View>
             {/* submit new password input */}
             <View style={passwordDisabled? styles.disabledButton : styles.enabledButton}>
-              <TouchableOpacity disabled={passwordDisabled} onPress={() => {changePass(); setPasswordModal(false);}}>
+              <TouchableOpacity disabled={passwordDisabled} onPress={() => {changePass(); setPasswordModal(false)}}>
                 <View style={styles.changeButton}>
                   <Text style={styles.whiteText}>Apply</Text>
                 </View>
@@ -562,7 +574,7 @@ function TabNavigator() {
         component={HomeScreen}
         options={{
           tabBarLabel: "Home",
-          tabBarIcon: ({focused}) => (<VectorIcons name="list" color={focused? "#141414": "#b3b3b3"} size={25}/>)
+          tabBarIcon: ({focused}) => (<VectorIcons name="list-ul" color={focused? "#141414": "#b3b3b3"} size={25}/>)
         }}
       />
       <Tab.Screen
@@ -570,22 +582,11 @@ function TabNavigator() {
         component={AccountScreen}
         options={{
           tabBarLabel: "Account",
-          tabBarIcon: ({focused}) => (<VectorIcons name="user-circle-o" color={focused? "#141414": "#b3b3b3"} size={28}/>)
+          tabBarIcon: ({focused}) => (<VectorIcons name="user" color={focused? "#141414": "#b3b3b3"} size={30}/>)
         }}
       />
     </Tab.Navigator>
   );
-}
-
-function BufferScreen({ navigation }) {
-  const isFocused = useIsFocused();
-  isFocused? checkAuth = !checkAuth : null;
-
-  useEffect(() => {
-    if (signedIn) {
-      navigation.navigate("TabNavigator");
-    }
-  }, [checkAuth]);
 }
 
 //sign in screen
@@ -625,7 +626,7 @@ function SignInScreen({ navigation }) {
 
   useEffect(() => {
     if (signedIn) {
-      navigation.navigate("BufferScreen");
+      navigation.navigate("TabNavigator");
     }
   }, [checkAuth]);
 
@@ -686,7 +687,7 @@ function SignInScreen({ navigation }) {
               //reset login inputs
               setUsername("");
               setPassword("");
-              navigation.navigate("BufferScreen");
+              navigation.navigate("TabNavigator");
             } else {
               //wrong password
               setWrongPass(true);
@@ -761,7 +762,7 @@ function SignUpScreen({ navigation }) {
         userName = key;
         navigation.navigate("TabNavigator");
       } else {
-        Alert.alert("test", "test", [{test: "ok"}]);
+        Alert.alert();
       }
     } catch (e) {
       console.log(error);
@@ -774,7 +775,7 @@ function SignUpScreen({ navigation }) {
 
   useEffect(() => {
     if (signedIn) {
-      navigation.navigate("BufferScreen");
+      navigation.navigate("TabNavigator");
     }
   }, [checkAuth]);
 
@@ -837,7 +838,7 @@ function SignUpScreen({ navigation }) {
                 setUsername("");
                 setPassword("");
                 setPasswordC("");
-                navigation.navigate("BufferScreen");
+                navigation.navigate("TabNavigator");
               }, (txObj, error) => {
                 console.log(error);
               });
@@ -907,7 +908,6 @@ function App() {
       <Stack.Navigator initialRouteName="SignIn" screenOptions={{headerShown: false}}>
           <Stack.Screen name="SignIn" component={SignInScreen} />
           <Stack.Screen name="SignUp" component={SignUpScreen} />
-          <Stack.Screen name="BufferScreen" component={BufferScreen} />
           <Stack.Screen name="TabNavigator" component={TabNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
 
   loginButton: {
     width: "100%",
-    alignItems: "flex-end",
+    alignItems: "center",
     padding: 15
   },
 
