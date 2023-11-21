@@ -7,7 +7,6 @@ import VectorIcons from "react-native-vector-icons/FontAwesome";
 import Modal from "react-native-modal";;
 import { SHA256 } from "crypto-es/lib/sha256";
 import * as SQLite from "expo-sqlite";
-import { setStatusBarStyle } from "expo-status-bar";
 
 //local storage imports
 /*
@@ -36,15 +35,10 @@ let listUpdate = false;
 
 //database
 function openDatabase() {
-  const db = SQLite.openDatabase("newstyle.db");
+  const db = SQLite.openDatabase("karuna.db");
   return db;
 }
 const db = openDatabase();
-
-//check inputs for white space
-function hasWhiteSpace(input) {
-  return input.indexOf(" ") >= 0;
-}
 
 //home screen/list of todo items
 function HomeScreen() {
@@ -409,6 +403,12 @@ function AccountScreen({ navigation }) {
   const [passwordDisabled, setPasswordDisabled] = useState(true);
   //duplicate name
   const [duplicateName, setDuplicateName] = useState(false);
+  //whitespaces in username
+  const [nameSpace, setNameSpace] = useState(false);
+  //password length
+  const [shortPass, setShortPass] = useState(false);
+  //whitespaces in password
+  const [passSpace, setPassSpace] = useState(false);
   
   //sign out and unassign user details
   const signOut = () => {
@@ -439,20 +439,53 @@ function AccountScreen({ navigation }) {
     }
   }, [newPassword]);
 
+  //reset warning text
+  useEffect(() => {
+    setDuplicateName(false);
+    setNameSpace(false);
+  }, [newUsername]);
+
+  //reset warning text
+  useEffect(() => {
+    setShortPass(false);
+    setPassSpace(false);
+  }, [newPassword]);
+
+  //switch for state
+  const isFocused = useIsFocused();
+  isFocused? taskUpdate = !taskUpdate : null;
+
+  //check for changes in stats
+  useEffect(() => {
+  }, [taskUpdate]);
+
+  //prevent going back to previous screen
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => backHandler.remove();
+  }, [])
+
   //change username
   const changeName = () => {
     db.transaction(
       (tx) => {
         tx.executeSql("SELECT * FROM users WHERE uname = ?", [newUsername.toLowerCase()], (txObj, { rows }) => {
-          if (rows.length > 0) {
-            setDuplicateName(true);
-          } else {
+          if (rows.length == 0 && newUsername.indexOf(" ") == -1) {
+            setDuplicateName(false);
+            setNameSpace(false);
             tx.executeSql("UPDATE users SET dname = ?, uname = ? WHERE user_id = ?", [newUsername, newUsername.toLowerCase(), userID], (txObj, { rows }) => {
               setUsernameModal(false);
               signOut();
             }, (txObj, error) => {
               console.log(error);
             });
+          } else {
+            if (rows.length > 0) {
+              setDuplicateName(true);
+            }
+            if (newUsername.indexOf(" ") >= 0) {
+              setNameSpace(true);
+            }
           }
         }, (txObj, error) => {
           console.log(error);
@@ -463,28 +496,29 @@ function AccountScreen({ navigation }) {
 
   //change password
   const changePass = () => {
-    db.transaction(
-      (tx) => {
-        tx.executeSql("UPDATE users SET pword = ? WHERE user_id = ?", [(SHA256(newPassword)).toString(), userID], (txObj, { rows }) => {
-        }, (txObj, error) => {
-          console.log(error);
-        });
+    if (newPassword.length >= 10 && newPassword.indexOf(" ") == -1) {
+      setShortPass(false);
+      setPassSpace(false);
+      db.transaction(
+        (tx) => {
+          tx.executeSql("UPDATE users SET pword = ? WHERE user_id = ?", [(SHA256(newPassword)).toString(), userID], (txObj, { rows }) => {
+            setPasswordModal(false);
+          }, (txObj, error) => {
+            console.log(error);
+          });
+        }
+      );
+    } else {
+      if (newPassword.length < 10) {
+        //password is not long enough
+        setShortPass(true);
       }
-    );
+      if (newPassword.indexOf(" ") >= 0) {
+        //password has whitespace
+        setPassSpace(true);
+      }
+    }
   }
-
-  //switch for state
-  const isFocused = useIsFocused();
-  isFocused? taskUpdate = !taskUpdate : null;
-
-  //check for changes in stats
-  useEffect(() => {
-  }, [taskUpdate]);
-
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener("hardwareBackPress", () => true);
-    return () => backHandler.remove();
-  }, [])
 
   return (
     <ScrollView contentContainerStyle={styles.basic} keyboardShouldPersistTaps="handled">
@@ -523,10 +557,13 @@ function AccountScreen({ navigation }) {
             <View style={styles.changeText}>
               <TextInput placeholder="New username" defaultValue={newUsername} onChangeText={changeUsername => setNewUsername(changeUsername)} style={styles.inputSize} maxLength={20}/>
             </View>
+            {/* duplicate username warning text */}
             {duplicateName? <View style={styles.errorText}><Text style={styles.errorFont}>A user with that username already exists.</Text></View> : null}
+            {/* username contains space warning text */}
+            {nameSpace? <View style={styles.errorText}><Text style={styles.errorFont}>Username cannot contain white spaces.</Text></View> : null}
             {/* submit new username input */}
             <View style={usernameDisabled? styles.disabledButton : styles.enabledButton}>
-              <TouchableOpacity disabled={usernameDisabled} onPress={() => {changeName()}}>
+              <TouchableOpacity disabled={usernameDisabled} onPress={() => changeName()}>
                 <View style={styles.changeButton}>
                   <Text style={styles.whiteText}>Apply</Text>
                 </View>
@@ -547,9 +584,13 @@ function AccountScreen({ navigation }) {
             <View style={styles.changeText}>
               <TextInput placeholder="New password" defaultValue={newPassword} onChangeText={changePassword => setNewPassword(changePassword)} style={styles.inputSize} maxLength={40} secureTextEntry={true}/>
             </View>
+            {/* short password warning text */}
+            {shortPass? <View style={styles.errorText}><Text style={styles.errorFont}>Password needs at least 10 characters.</Text></View> : null}
+            {/* password contains space warning text */}
+            {passSpace? <View style={styles.errorText}><Text style={styles.errorFont}>Password cannot contain white spaces.</Text></View> : null}
             {/* submit new password input */}
             <View style={passwordDisabled? styles.disabledButton : styles.enabledButton}>
-              <TouchableOpacity disabled={passwordDisabled} onPress={() => {changePass(); setPasswordModal(false)}}>
+              <TouchableOpacity disabled={passwordDisabled} onPress={() => changePass()}>
                 <View style={styles.changeButton}>
                   <Text style={styles.whiteText}>Apply</Text>
                 </View>
@@ -820,7 +861,7 @@ function SignUpScreen({ navigation }) {
       (tx) => {
         //check for duplicates
         tx.executeSql("SELECT * FROM users WHERE uname = ?", [username.toLowerCase()], (txObj, { rows }) => {
-          if (rows.length == 0 && password == passwordC && password.length >= 10 && passwordC.length >= 10) {
+          if (rows.length == 0 && password == passwordC && password.length >= 10 && passwordC.length >= 10 && username.indexOf(" ") == -1 && password.indexOf(" ") == -1 && passwordC.indexOf(" ") == -1) {
             setNameTaken(false);
             setMismatch(false);
             setShortPass(false);
